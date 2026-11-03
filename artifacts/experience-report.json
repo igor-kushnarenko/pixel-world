@@ -1,0 +1,33 @@
+{
+  "version": "0.2.0",
+  "url": "https://igor-kushnarenko.github.io/pixel-world/",
+  "checkedAt": "2026-11-03T13:49:36.377Z",
+  "sourceCommit": "f06f3950cd60a272105f98874af42fc3c1f17b7d",
+  "unitTests": 26,
+  "checks": [
+    "Public scene loads at native 1672x941",
+    "Canonical night: lamps, clouds, rain and radio off; sound locked",
+    "Quiet entrance does not unlock audio and leaves menu closed",
+    "Compact menu and independent room light hotspots work on public site",
+    "Live Classic Vinyl HD stream reaches on state; AudioContext is running",
+    "Cloud and rain controls enable native GPU weather",
+    "Global mute reports Без звука on public site"
+  ],
+  "errors": [],
+  "publicRadio": {
+    "station": "Classic Vinyl HD",
+    "state": "on",
+    "audioContext": "running"
+  },
+  "workflowUrl": "https://github.com/igor-kushnarenko/pixel-world/actions/runs/41647395226",
+  "published": true,
+  "localBrowserChecks": [
+    "Independent lamp lighting, ambient audio and live radio",
+    "Mobile viewport 390x844 without horizontal overflow"
+  ],
+  "screenshots": [
+    "artifacts/apartment-public.jpg",
+    "artifacts/apartment-public-menu.jpg",
+    "artifacts/apartment-mobile.jpg"
+  ]
+}
