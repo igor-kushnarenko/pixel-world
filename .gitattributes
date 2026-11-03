@@ -2,3 +2,4 @@
 *.png binary
 *.psd binary
 live_sky_instructions.md -text whitespace=-blank-at-eol
+public/assets/apartment/stations.json -text whitespace=cr-at-eol
