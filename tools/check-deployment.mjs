@@ -25,8 +25,10 @@ try {
   check('PSD comparison works on project subpath', await page.evaluate(() => window.atmosphere.getDiagnostics().layers.find(l => l.id === 'reference-sky').visible));
   await page.locator('[data-preset="drifting"]').click();
   check('Cloud preset enables both cloud planes', await page.evaluate(() => window.atmosphere.getDiagnostics().layers.filter(l => l.id.startsWith('cloud-')).every(l => l.visible)));
+  report.animationBefore = await page.evaluate(() => ({ diagnostics: window.atmosphere.getDiagnostics(), label: document.querySelector('#pause').textContent, visibility: document.visibilityState }));
   await page.locator('#pause').click();
-  await page.waitForTimeout(300);
+  await page.waitForFunction(() => window.atmosphere.getDiagnostics().running && window.atmosphere.getDiagnostics().time > 0, undefined, { timeout: 15000, polling: 100 });
+  report.animationAfter = await page.evaluate(() => window.atmosphere.getDiagnostics());
   check('Animation starts and advances on the published site', await page.evaluate(() => window.atmosphere.getDiagnostics().running && window.atmosphere.getDiagnostics().time > 0));
   await page.locator('#pause').click();
   await page.locator('#reset').click();

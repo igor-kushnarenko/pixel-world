@@ -1,0 +1,151 @@
+{
+  "url": "https://igor-kushnarenko.github.io/pixel-world/",
+  "checkedAt": "2026-11-03T08:26:57.495Z",
+  "checks": [
+    "Published page returns HTTP 200",
+    "Public scene renders author city at 1890x1063",
+    "Canonical start is moonless and cloudless",
+    "PSD comparison works on project subpath",
+    "Cloud preset enables both cloud planes",
+    "Animation starts and advances on the published site",
+    "Preset export works",
+    "Scene navigation stays under the deployed project URL",
+    "No failed requests, JavaScript exceptions or shader errors"
+  ],
+  "errors": [],
+  "requestsFailed": [],
+  "animationBefore": {
+    "diagnostics": {
+      "logicalWidth": 1890,
+      "logicalHeight": 1063,
+      "integerScale": 1,
+      "drawCalls": 8,
+      "running": false,
+      "time": 0,
+      "layers": [
+        {
+          "id": "sky",
+          "depth": 0,
+          "visible": true
+        },
+        {
+          "id": "reference-background",
+          "depth": 0.25,
+          "visible": false
+        },
+        {
+          "id": "reference-sky",
+          "depth": 0.5,
+          "visible": false
+        },
+        {
+          "id": "cloud-far",
+          "depth": 10,
+          "visible": true
+        },
+        {
+          "id": "city-far",
+          "depth": 20,
+          "visible": true
+        },
+        {
+          "id": "cloud-low",
+          "depth": 30,
+          "visible": true
+        },
+        {
+          "id": "city-mid-far",
+          "depth": 40,
+          "visible": true
+        },
+        {
+          "id": "fog",
+          "depth": 50,
+          "visible": false
+        },
+        {
+          "id": "city-mid-near",
+          "depth": 60,
+          "visible": true
+        },
+        {
+          "id": "city-near",
+          "depth": 80,
+          "visible": true
+        },
+        {
+          "id": "rain",
+          "depth": 90,
+          "visible": false
+        }
+      ]
+    },
+    "label": "▷ Продолжить",
+    "visibility": "visible"
+  },
+  "animationAfter": {
+    "logicalWidth": 1890,
+    "logicalHeight": 1063,
+    "integerScale": 1,
+    "drawCalls": 8,
+    "running": true,
+    "time": 0.00859999997615796,
+    "layers": [
+      {
+        "id": "sky",
+        "depth": 0,
+        "visible": true
+      },
+      {
+        "id": "reference-background",
+        "depth": 0.25,
+        "visible": false
+      },
+      {
+        "id": "reference-sky",
+        "depth": 0.5,
+        "visible": false
+      },
+      {
+        "id": "cloud-far",
+        "depth": 10,
+        "visible": true
+      },
+      {
+        "id": "city-far",
+        "depth": 20,
+        "visible": true
+      },
+      {
+        "id": "cloud-low",
+        "depth": 30,
+        "visible": true
+      },
+      {
+        "id": "city-mid-far",
+        "depth": 40,
+        "visible": true
+      },
+      {
+        "id": "fog",
+        "depth": 50,
+        "visible": false
+      },
+      {
+        "id": "city-mid-near",
+        "depth": 60,
+        "visible": true
+      },
+      {
+        "id": "city-near",
+        "depth": 80,
+        "visible": true
+      },
+      {
+        "id": "rain",
+        "depth": 90,
+        "visible": false
+      }
+    ]
+  }
+}

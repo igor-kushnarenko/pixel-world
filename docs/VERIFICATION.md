@@ -2,6 +2,8 @@
 
 Дата: **3 ноября 2026**, Windows, Chrome **156.0.8078.80**, WebGL 2 через ANGLE/SwiftShader.
 
+Сцена опубликована на [GitHub Pages](https://igor-kushnarenko.github.io/pixel-world/). Дополнительно пройдены **9 проверок публичного сайта**, без ошибок ресурсов, JavaScript или шейдеров; отчёт — `artifacts/deployment-report.json`. Локальные 36 браузерных проверок повторно выполнены со сборкой для пути `/pixel-world/`.
+
 ## Результат
 
 - `npm run build` — успешно: проверка TypeScript, production-демо `dist/`, независимый ES-модуль и декларации `lib/`.

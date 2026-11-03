@@ -2,6 +2,8 @@
 
 Рабочий переиспользуемый прототип на **TypeScript + Three.js + GLSL**, реализованный по `live_sky_instructions.md` v1.0. Канонический файл скопирован без изменений из предоставленного пользователем источника.
 
+**[Открыть опубликованную сцену](https://igor-kushnarenko.github.io/pixel-world/)** · [Репозиторий GitHub](https://github.com/igor-kushnarenko/pixel-world)
+
 Публикация на GitHub Pages настроена через `.github/workflows/pages.yml`; порядок обновления и проверки публичного сайта описан в [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Запуск
