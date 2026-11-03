@@ -1,0 +1,9 @@
+{
+  "width": 1890,
+  "height": 1063,
+  "reference": "public/assets/nightcity/reference-psd.png",
+  "reconstructed": "artifacts/nightcity-layer-composite.png",
+  "maxChannelDifference": 0,
+  "pixelExact": true,
+  "sourcePsdSha256": "cf02047bbe5f836f27192f6a4836b63e4c18cec5d9f01d1b62e8e322d4956d96"
+}

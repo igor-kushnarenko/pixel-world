@@ -1,0 +1,25 @@
+{
+  "name": "@pixel-world/atmosphere-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Reusable pixel-perfect GPU atmosphere for layered pixel art scenes",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build && npm run build:engine",
+    "build:engine": "vite build --config vite.engine.config.ts && tsc -p tsconfig.engine.json",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "vitest run",
+    "test:browser": "node tests/browser.mjs"
+  },
+  "exports": { ".": { "types": "./lib/index.d.ts", "import": "./lib/atmosphere-engine.js" } },
+  "files": ["lib", "README.md", "live_sky_instructions.md"],
+  "dependencies": { "three": "0.181.1" },
+  "devDependencies": {
+    "@types/three": "0.181.0",
+    "playwright": "1.56.1",
+    "typescript": "5.9.3",
+    "vite": "7.2.2",
+    "vitest": "4.0.8"
+  }
+}

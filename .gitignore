@@ -1,0 +1,16 @@
+node_modules/
+dist/
+lib/
+*.log
+.vite/
+.tools/
+__pycache__/
+assets/source/
+artifacts/*
+!artifacts/browser-report.json
+!artifacts/psd-import-report.json
+!artifacts/deployment-report.json
+*.zip
+.env
+.env.*
+!.env.example

@@ -1,0 +1,189 @@
+{
+  "version": 1,
+  "width": 1890,
+  "height": 1063,
+  "sourcePsd": {
+    "file": "assets/source/nightcity.psd",
+    "sha256": "cf02047bbe5f836f27192f6a4836b63e4c18cec5d9f01d1b62e8e322d4956d96"
+  },
+  "originals": [
+    {
+      "id": "city-far",
+      "originalName": "Дальний туманный мегаполис будущего.png",
+      "file": "originals/city-far.png",
+      "sha256": "12c8477669370ddee8bd1e1e8e9b4a72ce14b7d45e828d86d87637f8c7577242",
+      "width": 1672,
+      "height": 941,
+      "transparentPixels": 724725,
+      "partialAlphaPixels": 848014,
+      "opaquePixels": 613
+    },
+    {
+      "id": "city-mid-far",
+      "originalName": "Средний дальний.png",
+      "file": "originals/city-mid-far.png",
+      "sha256": "863774b690fa46b8c56de6c578d3f1883280157e054305a6a0e05b3ed7963aa8",
+      "width": 1672,
+      "height": 941,
+      "transparentPixels": 848287,
+      "partialAlphaPixels": 725013,
+      "opaquePixels": 52
+    },
+    {
+      "id": "city-mid-near",
+      "originalName": "Средний ближний.png",
+      "file": "originals/city-mid-near.png",
+      "sha256": "e22b5afe77abe6b7c491cb1a3a6621bc1d0adebc5f40fa3da225399fb26a0625",
+      "width": 1672,
+      "height": 941,
+      "transparentPixels": 731400,
+      "partialAlphaPixels": 841197,
+      "opaquePixels": 755
+    },
+    {
+      "id": "city-near",
+      "originalName": "Ближний.png",
+      "file": "originals/city-near.png",
+      "sha256": "75aa9fa4800c501894eed67d7db5db22d6fed8f833f907a20b9aae1d7aed3fd0",
+      "width": 1672,
+      "height": 941,
+      "transparentPixels": 889728,
+      "partialAlphaPixels": 683564,
+      "opaquePixels": 60
+    },
+    {
+      "id": "room",
+      "originalName": "room.png",
+      "file": "originals/room.png",
+      "sha256": "f2e2c082b7870cac26a57ed00b8eb25345d788003371d8ebc8e1f080ef91a8cb",
+      "width": 1672,
+      "height": 941,
+      "transparentPixels": 743438,
+      "partialAlphaPixels": 829789,
+      "opaquePixels": 125
+    }
+  ],
+  "layersBottomToTop": [
+    {
+      "id": "reference-background",
+      "label": "Белый фон PSD",
+      "psdName": "Background",
+      "originalName": null,
+      "bbox": [
+        0,
+        0,
+        1890,
+        1063
+      ],
+      "opacity": 255,
+      "visible": true,
+      "blendMode": "normal",
+      "depth": 0.25,
+      "file": "psd/reference-background.png",
+      "sha256": "6c1fe69c6e48e5ae816a0761015d94034113b85da4b6b6c490a3d4a121a149bd",
+      "runtimeX": 0,
+      "runtimeY": 0
+    },
+    {
+      "id": "reference-sky",
+      "label": "Нарисованное небо PSD",
+      "psdName": "Layer 1",
+      "originalName": null,
+      "bbox": [
+        32,
+        -236,
+        1922,
+        827
+      ],
+      "opacity": 255,
+      "visible": true,
+      "blendMode": "normal",
+      "depth": 0.5,
+      "file": "psd/reference-sky.png",
+      "sha256": "424b014e16a573b7eca4484d45df25337adba90e475d551acb67c4ae1f33466b",
+      "runtimeX": 0,
+      "runtimeY": 0
+    },
+    {
+      "id": "city-far",
+      "label": "Дальний туманный мегаполис",
+      "psdName": "Layer 2",
+      "originalName": "Дальний туманный мегаполис будущего.png",
+      "bbox": [
+        475,
+        233,
+        1562,
+        739
+      ],
+      "opacity": 255,
+      "visible": true,
+      "blendMode": "normal",
+      "depth": 20,
+      "file": "psd/city-far.png",
+      "sha256": "352c3eec2c1b15c92392614efb8fd60c7aaa15e688ebabc3e182372844d950fb",
+      "runtimeX": 0,
+      "runtimeY": 0
+    },
+    {
+      "id": "city-mid-far",
+      "label": "Средний дальний",
+      "psdName": "Layer 3",
+      "originalName": "Средний дальний.png",
+      "bbox": [
+        -131,
+        -49,
+        1852,
+        908
+      ],
+      "opacity": 255,
+      "visible": true,
+      "blendMode": "normal",
+      "depth": 40,
+      "file": "psd/city-mid-far.png",
+      "sha256": "abb500b1fd204b1104c399b105e014b779f9378ada37b101fa22fbb22800eaf6",
+      "runtimeX": 0,
+      "runtimeY": 0
+    },
+    {
+      "id": "city-mid-near",
+      "label": "Средний ближний",
+      "psdName": "Layer 4",
+      "originalName": "Средний ближний.png",
+      "bbox": [
+        190,
+        -91,
+        2276,
+        1063
+      ],
+      "opacity": 255,
+      "visible": true,
+      "blendMode": "normal",
+      "depth": 60,
+      "file": "psd/city-mid-near.png",
+      "sha256": "309835dcda520e1e25f2a5fc9ed6a53d44a6273958ae7f8363ba7a25afe766d2",
+      "runtimeX": 0,
+      "runtimeY": 0
+    },
+    {
+      "id": "city-near",
+      "label": "Ближний",
+      "psdName": "Layer 5",
+      "originalName": "Ближний.png",
+      "bbox": [
+        -56,
+        -100,
+        2010,
+        1063
+      ],
+      "opacity": 255,
+      "visible": true,
+      "blendMode": "normal",
+      "depth": 80,
+      "file": "psd/city-near.png",
+      "sha256": "8de7ba2fb226bf2dcd05c6d19cb370f4c39ff2bc2b0d1c7389d6de37a3783aa4",
+      "runtimeX": 0,
+      "runtimeY": 0
+    }
+  ],
+  "roomPlacement": "pending: room PNG is not present in the PSD"
+}

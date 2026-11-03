@@ -1,0 +1,165 @@
+{
+  "browser": "156.0.8078.80",
+  "checks": [
+    "Canonical start: night, no moon, no clouds, no interior appliances",
+    "Final display: every logical pixel becomes an identical 2x2 block",
+    "GPU framebuffer is nonempty and opaque",
+    "Cloud preset changes the GPU image",
+    "Window mask: zero changed pixels outside the aperture, including frame",
+    "Cloud planes are occluded by an opaque foreground building",
+    "Far cloud field renders and moves on GPU",
+    "Low cloud field renders and moves on GPU",
+    "Changing cloud depth moves it in front of the city facade",
+    "Zero wind freezes cloud translation",
+    "Tiny time increments do not cause subpixel shimmer",
+    "Export/import plus seek reproduces exact framebuffer bytes",
+    "Invalid preset import is rejected atomically",
+    "Lightning is disabled in canonical preset",
+    "Explicit storm flash synchronizes sky, city and sill receivers",
+    "Panorama disables the room and its lights",
+    "Cloud switch enables coverage from canonical zero",
+    "Slider controls update engine parameters",
+    "JSON file import updates scene and control values",
+    "Preset download is offered as JSON",
+    "Narrow layout preserves native pixel grid and scrolls scene locally",
+    "No browser exceptions or shader compiler errors",
+    "PNG import preserves authored colors, native dimensions and integer placement",
+    "Straight alpha holes reveal the correct background without color halos",
+    "Mismatched masks are rejected and failed creation cleans up its canvas",
+    "Disposal is idempotent and removes canvas",
+    "Available original source and exported layer hashes match the import manifest",
+    "Author city uses the PSD canvas 1890x1063 without resizing",
+    "GPU city composite matches PSD reference within 2 levels of RGBA8 rounding",
+    "PSD comparison disables atmosphere controls and animation",
+    "Scene snapshot exports the entire native canvas, including offscreen pixels",
+    "Live sky mode replaces only PSD background and sky, retaining all four city layers",
+    "Baked city lights cannot be mistaken for editable emissive masks",
+    "Both GPU cloud fields render in the author city",
+    "Large panorama starts at an accessible top-left and scrolls locally at 1:1",
+    "Author city has no browser or shader errors"
+  ],
+  "errors": [],
+  "screenshots": [
+    "demo-canonical.png",
+    "demo-clouds.png",
+    "demo-storm.png",
+    "demo-dawn.png",
+    "demo-mobile.png",
+    "nightcity-app.png",
+    "nightcity-psd.png",
+    "nightcity-procedural.png",
+    "nightcity-clouds.png"
+  ],
+  "gpu": {
+    "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+    "diagnostics": {
+      "logicalWidth": 480,
+      "logicalHeight": 270,
+      "integerScale": 2,
+      "drawCalls": 9,
+      "running": false,
+      "time": 0,
+      "layers": [
+        {
+          "id": "sky",
+          "depth": 0,
+          "visible": true
+        },
+        {
+          "id": "cloud-far",
+          "depth": 10,
+          "visible": false
+        },
+        {
+          "id": "city-far",
+          "depth": 20,
+          "visible": true
+        },
+        {
+          "id": "cloud-low",
+          "depth": 30,
+          "visible": false
+        },
+        {
+          "id": "city-mid",
+          "depth": 40,
+          "visible": true
+        },
+        {
+          "id": "windows",
+          "depth": 41,
+          "visible": true
+        },
+        {
+          "id": "neon",
+          "depth": 42,
+          "visible": true
+        },
+        {
+          "id": "fog",
+          "depth": 50,
+          "visible": false
+        },
+        {
+          "id": "city-near",
+          "depth": 60,
+          "visible": true
+        },
+        {
+          "id": "rain",
+          "depth": 80,
+          "visible": false
+        },
+        {
+          "id": "room-0a",
+          "depth": 100,
+          "visible": true
+        },
+        {
+          "id": "room-exterior",
+          "depth": 110,
+          "visible": true
+        },
+        {
+          "id": "room-lamp",
+          "depth": 111,
+          "visible": false
+        },
+        {
+          "id": "room-radio",
+          "depth": 112,
+          "visible": false
+        },
+        {
+          "id": "room-computer",
+          "depth": 113,
+          "visible": false
+        }
+      ]
+    }
+  },
+  "pixelBlocks": {
+    "mismatched": 0,
+    "scale": 2,
+    "width": 960
+  },
+  "sourcePsdPresent": true,
+  "cityReferenceComparison": {
+    "maxDifference": 0,
+    "pixelsOver2": 0,
+    "meanChannelDifference": 0,
+    "width": 1890,
+    "height": 1063
+  },
+  "cityClouds": {
+    "changed": 264935,
+    "visible": true
+  },
+  "cityNativeScroll": {
+    "x": 0,
+    "y": 0.1875,
+    "width": 1890,
+    "scrollable": true,
+    "pageFits": true
+  }
+}
