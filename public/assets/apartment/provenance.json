@@ -1,0 +1,49 @@
+{
+  "sourceRepository": "https://github.com/igor-kushnarenko/nightcity",
+  "sourceCommit": "de3c2e17a88f270af49db2641c76ae79cec78213",
+  "borrowed": [
+    "src/audio.js",
+    "src/radio.js",
+    "src/config.js: authored layouts and hit regions",
+    "public/stations.json",
+    "public/layers/masks/*_fx.png",
+    "public/layers/masks/lit_left.png",
+    "public/layers/masks/lit_right.png",
+    "public/layers/masks/room_emit.png"
+  ],
+  "note": "Original PNGs remain byte-identical in assets/nightcity/originals. Imported source images were verified pixel-identical. No sky or cloud bitmaps imported.",
+  "assets": [
+    {
+      "file": "masks/far_fx.png",
+      "sha256": "ce643bb34f15a7cf27031926dc8a9415cf5a5a07c7d5e65e9e24055fd7994c15"
+    },
+    {
+      "file": "masks/lit_left.png",
+      "sha256": "008678a03ce54ffc61aa6b8b0cb8260c1cd069d0d2af6abd70192e5ac8ef85a0"
+    },
+    {
+      "file": "masks/lit_right.png",
+      "sha256": "b369e08a0db383d24cb9fd492f150e3cfe796c02d9623f7a847872cbd2ed59cd"
+    },
+    {
+      "file": "masks/midfar_fx.png",
+      "sha256": "7b1992dd45b1997a6fda8b04b8cdd864f96db5d1ac3a43d922c4672ef8d74d98"
+    },
+    {
+      "file": "masks/midnear_fx.png",
+      "sha256": "5b2f3ce682720a71c123702810c35ff1035081c781e9b5967a71bdf68ae313b8"
+    },
+    {
+      "file": "masks/near_fx.png",
+      "sha256": "f5fc64523377388936b3e26ebd9e341458001ce7381b28e81866dfc79709f552"
+    },
+    {
+      "file": "masks/room_emit.png",
+      "sha256": "99992ca691f9feba6f9c15c85f9982ed9ed556aa988886607ea7f053fd39ab47"
+    },
+    {
+      "file": "stations.json",
+      "sha256": "74f022a8185372c66be86a4d6bc4e0fcd7f27715d9d60a320a19ba591d26a982"
+    }
+  ]
+}

@@ -4,12 +4,14 @@ lib/
 *.log
 .vite/
 .tools/
+.references/
 __pycache__/
 assets/source/
 artifacts/*
 !artifacts/browser-report.json
 !artifacts/psd-import-report.json
 !artifacts/deployment-report.json
+!artifacts/experience-report.json
 *.zip
 .env
 .env.*

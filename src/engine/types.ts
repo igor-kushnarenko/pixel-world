@@ -33,6 +33,11 @@ export type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartia
 export type ParameterPatch = DeepPartial<AtmosphereParameters>;
 export type LightGroup = 'cityWindows' | 'neon' | 'street' | 'reflections' | 'exteriorRoom' | 'interior' | 'radio' | 'computer';
 export type TextureSource = string | Texture | HTMLCanvasElement;
+export interface LayerPlacement { x: number; y: number; scale: number }
+export interface RoomLightAssets {
+  left: TextureSource; right: TextureSource; emitters: TextureSource;
+  radioDial: [number, number, number, number]; radioLed: [number, number];
+}
 /** All coordinates are logical pixels from the top-left. Larger depth draws later. */
 export interface ImageLayer {
   id: string;
@@ -43,6 +48,12 @@ export interface ImageLayer {
   /** Defaults to native texture size. Resizing source art is deliberately unsupported. */
   opacity?: number;
   receivesLightning?: boolean;
+  /** Explicit author-approved transform; x/y are offsets of the layer center. */
+  placement?: LayerPlacement;
+  /** Prepared RGB mask: R=windows, G=cluster ID, B=neon. Never inferred at runtime. */
+  cityLightMask?: TextureSource;
+  roomLights?: RoomLightAssets;
+  tint?: [number, number, number];
 }
 /** White/red=receives light, black/transparent=no light. Aligned to the whole scene. */
 export interface LightMask {
@@ -68,6 +79,9 @@ export interface EngineOptions {
   scene: SceneDefinition;
   parameters?: ParameterPatch;
   onError?: (error: Error) => void;
+  onLightning?: () => void;
+  /** Host drives update/render and batches setters, rather than rendering every setter. */
+  autoRender?: boolean;
 }
 export interface EngineDiagnostics {
   logicalWidth: number; logicalHeight: number; integerScale: number;

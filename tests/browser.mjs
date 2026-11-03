@@ -176,7 +176,7 @@ try {
   }
   check('Available original source and exported layer hashes match the import manifest', hashesMatch);
   await page.setViewportSize({ width: 2000, height: 1400 });
-  await page.goto(`${siteBase}?paused&view=psd`, { waitUntil: 'networkidle' });
+  await page.goto(`${siteBase}?mode=lab&paused&view=psd`, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => !!window.atmosphere);
   const dimensions = await page.evaluate(() => window.atmosphere.getDiagnostics());
   check('Author city uses the PSD canvas 1890x1063 without resizing', dimensions.logicalWidth === 1890 && dimensions.logicalHeight === 1063 && dimensions.integerScale === 1);

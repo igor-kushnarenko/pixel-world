@@ -2,12 +2,13 @@ import {
   AdditiveBlending, ClampToEdgeWrapping, Color, DataTexture, LinearSRGBColorSpace,
   Mesh, NearestFilter, NoColorSpace, NormalBlending, OrthographicCamera,
   PlaneGeometry, RGBAFormat, Scene, ShaderMaterial, Texture, TextureLoader,
-  UnsignedByteType, Vector2, WebGLRenderer, WebGLRenderTarget, CanvasTexture
+  UnsignedByteType, Vector2, Vector3, Vector4, WebGLRenderer, WebGLRenderTarget, CanvasTexture
 } from 'three';
 import type { IUniform } from 'three';
-import type { AtmosphereParameters, CloudPlane, EngineDiagnostics, EngineOptions, LightMask, ParameterPatch, TextureSource } from './types';
+import type { AtmosphereParameters, CloudPlane, EngineDiagnostics, EngineOptions, LightMask, LayerPlacement, ParameterPatch, TextureSource } from './types';
 import { getPreset, paletteAt, parsePreset, resolveParameters, rgb } from './parameters';
-import { vertex, skyFragment, cloudFragment, imageFragment, lightFragment, fogFragment, rainFragment, outputFragment } from './shaders';
+import { frameDeltaSeconds } from './clock';
+import { vertex, skyFragment, cloudFragment, imageFragment, roomFragment, lightFragment, fogFragment, rainFragment, outputFragment } from './shaders';
 
 interface Pass { id: string; mesh: Mesh<PlaneGeometry, ShaderMaterial>; uniforms: Record<string, IUniform>; userVisible: boolean }
 interface CloudPass extends Pass { name: 'far' | 'low'; offset: Vector2 }
@@ -29,6 +30,7 @@ export class AtmosphereEngine {
   private readonly passes: Pass[] = [];
   private readonly clouds: CloudPass[] = [];
   private readonly lights: LightPass[] = [];
+  private readonly imageLayers = new Map<string, { pass: Pass; native: Vector2 }>();
   private readonly observer: ResizeObserver;
   private parameters: AtmosphereParameters;
   private windowTexture: Texture;
@@ -151,12 +153,33 @@ export class AtmosphereEngine {
       const texture = await this.texture(layer.source);
       const { width, height } = texture.image as { width: number; height: number };
       const x = layer.x ?? 0, y = layer.y ?? 0, opacity = layer.opacity ?? 1;
-      if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x + width > this.width || y + height > this.height) throw new Error(`${layer.id}: native-size art must fit scene at integer coordinates`);
+      if (!layer.placement && (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x + width > this.width || y + height > this.height)) throw new Error(`${layer.id}: native-size art must fit scene at integer coordinates`);
       if (!Number.isFinite(opacity) || opacity < 0 || opacity > 1) throw new Error(`${layer.id}: opacity must be 0…1`);
-      this.pass(layer.id, imageFragment, layer.depth, layer.scope === 'world', {
+      const extra: Record<string, IUniform> = {
         uImage: { value: texture }, uOrigin: { value: new Vector2(x, y) }, uSize: { value: new Vector2(width, height) },
-        uOpacity: { value: opacity }, uReceivesFlash: { value: layer.receivesLightning ? 1 : 0 }
-      });
+        uOpacity: { value: opacity }, uReceivesFlash: { value: layer.receivesLightning ? 1 : 0 },
+        uTint: { value: new Vector3(...(layer.tint ?? [1, 1, 1])) },
+        uTime: { value: 0 }, uHasCityMask: { value: layer.cityLightMask ? 1 : 0 },
+        uCityMask: { value: layer.cityLightMask ? await this.texture(layer.cityLightMask) : this.windowTexture },
+        uCityLights: { value: this.parameters.lighting.cityLightsIntensity }
+      };
+      const checkSameSize = (t: Texture) => {
+        const image = t.image as { width: number; height: number };
+        if (image.width !== width || image.height !== height) throw new Error(`${layer.id}: light map must match its source image`);
+      };
+      if (layer.cityLightMask) checkSameSize(extra.uCityMask.value);
+      if (layer.roomLights) {
+        const [left, right, emitters] = await Promise.all([this.texture(layer.roomLights.left), this.texture(layer.roomLights.right), this.texture(layer.roomLights.emitters)]);
+        [left, right, emitters].forEach(checkSameSize);
+        Object.assign(extra, {
+          uLeftLight: { value: left }, uRightLight: { value: right }, uEmitters: { value: emitters },
+          uRoomControls: { value: new Vector3() },
+          uRadioDial: { value: new Vector4(...layer.roomLights.radioDial) }, uRadioLed: { value: new Vector2(...layer.roomLights.radioLed) }
+        });
+      }
+      const pass = this.pass(layer.id, layer.roomLights ? roomFragment : imageFragment, layer.depth, layer.scope === 'world', extra);
+      this.imageLayers.set(layer.id, { pass, native: new Vector2(width, height) });
+      if (layer.placement) this.placeLayer(layer.id, layer.placement);
     }
     const groups = ['cityWindows', 'neon', 'street', 'reflections', 'exteriorRoom', 'interior', 'radio', 'computer'];
     for (const light of scene.lights ?? []) {
@@ -178,7 +201,7 @@ export class AtmosphereEngine {
     if (!next.weather.stormEnabled) this.flashAge = Infinity;
     if (next.weather.stormEnabled && !this.parameters.weather.stormEnabled) this.nextFlash = this.time + 14;
     this.parameters = next;
-    if (!this.running) this.render();
+    this.renderAfterEdit();
   }
   applyPreset(name: string): void { this.replaceParameters(getPreset(name)); }
   importPreset(json: string): void { this.replaceParameters(parsePreset(json)); }
@@ -197,7 +220,29 @@ export class AtmosphereEngine {
   setLayerVisible(id: string, visible: boolean): void {
     this.assertAlive(); const pass = this.passes.find(p => p.id === id);
     if (!pass) throw new Error(`Unknown layer: ${id}`);
-    pass.userVisible = visible; if (!this.running) this.render();
+    pass.userVisible = visible; this.renderAfterEdit();
+  }
+  private renderAfterEdit() { if (!this.running && this.options.autoRender !== false) this.render(); }
+  private placeLayer(id: string, placement: LayerPlacement) {
+    const image = this.imageLayers.get(id);
+    if (!image) throw new Error(`Unknown image layer: ${id}`);
+    const { x, y, scale } = placement;
+    if (![x, y, scale].every(Number.isFinite) || scale < 0.1 || scale > 4 || Math.abs(x) > this.width * 4 || Math.abs(y) > this.height * 4) throw new Error(`Invalid placement: ${id}`);
+    const size = image.native.clone().multiplyScalar(scale);
+    image.pass.uniforms.uSize.value.copy(size);
+    image.pass.uniforms.uOrigin.value.set(Math.round((this.width - size.x) / 2 + x), Math.round((this.height - size.y) / 2 + y));
+  }
+  /** Applies only explicit scene-authored transforms. Image data stays untouched. */
+  setLayerPlacement(id: string, placement: LayerPlacement): void { this.assertAlive(); this.placeLayer(id, placement); this.renderAfterEdit(); }
+  setLayerTint(id: string, tint: [number, number, number]): void {
+    this.assertAlive(); const image = this.imageLayers.get(id);
+    if (!image || !tint.every(n => Number.isFinite(n) && n >= 0 && n <= 2)) throw new Error(`Invalid tint/layer: ${id}`);
+    image.pass.uniforms.uTint.value.set(...tint); this.renderAfterEdit();
+  }
+  setRoomLightLevels(id: string, left: number, right: number, radio: number): void {
+    this.assertAlive(); const pass = this.imageLayers.get(id)?.pass;
+    if (!pass?.uniforms.uRoomControls || ![left, right, radio].every(n => Number.isFinite(n) && n >= 0 && n <= 1)) throw new Error(`Invalid room light controls: ${id}`);
+    pass.uniforms.uRoomControls.value.set(left, right, radio); this.renderAfterEdit();
   }
   /** For an editor panorama view. Location art and masks themselves stay untouched. */
   setWindowMaskEnabled(enabled: boolean): void {
@@ -207,12 +252,12 @@ export class AtmosphereEngine {
         && !this.options.scene.lights?.some(l => l.id === pass.id && l.scope === 'room');
       if (isWorld) pass.uniforms.uClip.value = enabled ? 1 : 0;
     }
-    if (!this.running) this.render();
+    this.renderAfterEdit();
   }
   triggerLightning(): boolean {
     this.assertAlive();
     if (!this.parameters.weather.stormEnabled || this.flashAge < 1) return false;
-    this.flashAge = 0; if (!this.running) this.render(); return true;
+    this.flashAge = 0; this.options.onLightning?.(); this.renderAfterEdit(); return true;
   }
   private moveCloud(cloud: CloudPass, layer: CloudPlane, dt: number) {
     const angle = this.parameters.clouds.windDirectionDeg * Math.PI / 180;
@@ -250,6 +295,8 @@ export class AtmosphereEngine {
     const p = this.parameters, colors = paletteAt(p.timeOfDay, p.sky.palette), flash = this.flash();
     for (const pass of this.passes) {
       pass.uniforms.uFlash.value = flash; pass.uniforms.uSteps.value = p.render.colorSteps; pass.uniforms.uSeed.value = p.seed;
+      if (pass.uniforms.uTime) pass.uniforms.uTime.value = this.time;
+      if (pass.uniforms.uCityLights) pass.uniforms.uCityLights.value = p.lighting.cityLightsIntensity;
       pass.mesh.visible = pass.userVisible;
     }
     const sky = this.passes[0].uniforms;
@@ -286,7 +333,7 @@ export class AtmosphereEngine {
     const tick = (now: number) => {
       if (!this.running) return;
       // A hidden tab must not cause a huge weather/time jump on return.
-      const dt = Math.min((now - this.previousTime) / 1000, 0.1); this.previousTime = now;
+      const dt = frameDeltaSeconds(now, this.previousTime); this.previousTime = now;
       try { this.update(dt); this.frameId = requestAnimationFrame(tick); }
       catch (error) { this.stop(); this.options.onError?.(error instanceof Error ? error : new Error(String(error))); }
     };

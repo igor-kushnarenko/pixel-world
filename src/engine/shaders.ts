@@ -64,13 +64,54 @@ export const imageFragment = common + /* glsl */`
 uniform sampler2D uImage;
 uniform vec2 uOrigin, uSize;
 uniform float uOpacity, uReceivesFlash;
+uniform sampler2D uCityMask;
+uniform float uHasCityMask, uCityLights, uTime;
+uniform vec3 uTint;
 void main() {
   vec2 pos=vec2(vUv.x,1.0-vUv.y)*uResolution-uOrigin;
   if(pos.x<0.0||pos.y<0.0||pos.x>=uSize.x||pos.y>=uSize.y) discard;
   vec2 texUV=vec2(pos.x/uSize.x,1.0-pos.y/uSize.y);
   vec4 c=texture2D(uImage,texUV);
+  vec3 col=c.rgb*uTint;
+  if(uHasCityMask>0.5){
+    vec3 m=texture2D(uCityMask,texUV).rgb;
+    // Reuse only prepared masks. Whole windows share the mask's cluster ID.
+    float phase=floor(m.g*255.0+0.5);
+    if(m.r>0.5){
+      float pulse=0.985+0.015*sin(uTime*0.14+phase);
+      col=col*mix(0.3,1.28,uCityLights)*pulse+vec3(0.045,0.028,0.0)*uCityLights;
+    }
+    if(m.b>0.5) col*=mix(0.4,1.25,uCityLights)*(0.97+0.03*sin(uTime*0.7+phase));
+  }
+  c.rgb=col;
   c.rgb+=c.rgb*uFlash*uReceivesFlash*1.7;
   gl_FragColor=vec4(c.rgb,c.a*uOpacity*windowAt(vUv));
+}
+`;
+export const roomFragment = common + /* glsl */`
+uniform sampler2D uImage, uLeftLight, uRightLight, uEmitters;
+uniform vec2 uOrigin, uSize, uRadioLed;
+uniform vec4 uRadioDial;
+uniform vec3 uTint, uRoomControls;
+uniform float uOpacity, uReceivesFlash;
+void main(){
+  vec2 p=vec2(vUv.x,1.0-vUv.y)*uResolution-uOrigin;
+  if(p.x<0.0||p.y<0.0||p.x>=uSize.x||p.y>=uSize.y) discard;
+  vec2 uv=vec2(p.x/uSize.x,1.0-p.y/uSize.y);
+  vec4 c=texture2D(uImage,uv); if(c.a<0.01) discard;
+  vec3 controls=floor(uRoomControls*24.0+0.5)/24.0;
+  vec3 em=texture2D(uEmitters,uv).rgb;
+  vec3 col=c.rgb*uTint;
+  col+=texture2D(uLeftLight,uv).rgb*controls.x+texture2D(uRightLight,uv).rgb*controls.y;
+  col+=vec3(1.0,0.72,0.42)*em.r*controls.x*0.35+vec3(1.0,0.62,0.28)*em.g*controls.y*0.3;
+  vec2 pixel=floor(p)+0.5;
+  float dial=step(uRadioDial.x,pixel.x)*step(pixel.x,uRadioDial.z)*step(uRadioDial.y,pixel.y)*step(pixel.y,uRadioDial.w);
+  float lum=dot(c.rgb,vec3(0.3,0.59,0.11));
+  col+=dial*vec3(1.0,0.62,0.25)*(0.1+lum*1.6)*controls.z;
+  float led=1.0-step(2.1,length(pixel-uRadioLed));
+  col+=vec3(0.25,1.0,0.35)*led*controls.z*0.8;
+  col+=c.rgb*uFlash*uReceivesFlash*0.6;
+  gl_FragColor=vec4(col,c.a*uOpacity);
 }
 `;
 export const lightFragment = common + /* glsl */`
@@ -95,10 +136,25 @@ export const rainFragment = common + /* glsl */`
 uniform float uRain, uTime;
 void main() {
   vec2 p=floor(vUv*uResolution);
-  float speed=floor(uTime*85.0);
-  vec2 cell=vec2(floor((p.x+floor(p.y*0.2))/7.0),floor((p.y+speed)/17.0));
-  float drop=step(1.0-uRain*0.35,hash(cell))*step(mod(p.y+speed,17.0),3.0)*step(mod(p.x+floor(p.y*0.2),7.0),0.0);
-  gl_FragColor=vec4(vec3(0.36,0.47,0.61)+uFlash*0.3,drop*0.5*windowAt(vUv));
+  float alpha=0.0;
+  // Three native-pixel column fields, adapted from nightcity's rain model.
+  // No smooth subpixel edges: each streak occupies whole logical pixels.
+  for(int i=0;i<3;i++){
+    float layer=float(i), cellWidth=4.0+layer*2.0;
+    float x=floor(p.x+p.y*(0.09+layer*0.025));
+    float column=floor(x/cellWidth), within=mod(x,cellWidth);
+    float seed=hash(vec2(column,layer*17.0));
+    float speed=(340.0+layer*180.0)*(0.8+seed*0.4);
+    float period=250.0+seed*230.0;
+    float fall=p.y+floor(uTime*speed)+floor(seed*period*3.0);
+    float cycle=floor(fall/period), phase=mod(fall,period);
+    float allowed=step(1.0-uRain*(0.7-layer*0.12),hash(vec2(column+layer*97.0,cycle)));
+    float len=(7.0+layer*6.0)*(0.6+uRain);
+    float position=floor(hash(vec2(column,cycle+layer+2.0))*cellWidth);
+    float streak=(1.0-step(0.5,abs(within-position)))*(1.0-step(len,phase));
+    alpha+=allowed*streak*(0.12+layer*0.07);
+  }
+  gl_FragColor=vec4(vec3(0.5,0.61,0.74)+uFlash*0.3,min(0.5,alpha)*windowAt(vUv));
 }
 `;
 export const outputFragment = /* glsl */`
