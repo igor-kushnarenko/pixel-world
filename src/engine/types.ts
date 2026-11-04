@@ -20,6 +20,7 @@ export interface CloudPlane {
 }
 export interface AtmosphereParameters {
   presetVersion: 1;
+  life: { beacons: boolean; traffic: number; windowDrops: boolean };
   seed: number;
   timeOfDay: number;
   sky: { palette: PaletteName; starsEnabled: boolean; moonEnabled: false; horizonGlow: number };

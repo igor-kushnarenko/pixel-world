@@ -48,5 +48,23 @@ try {
   await page.locator('summary').filter({hasText:'Дальний город'}).click();
   await page.locator('#atmo-far-hazeDensity').fill('35');await page.locator('#atmo-far-hazeDensity').dispatchEvent('input');
   assert.equal(await page.evaluate(()=>window.atmosphere.getParameters().weather.layers.far.hazeDensity),0.35);
+  const life=await page.evaluate(()=>{
+    const e=window.atmosphere;e.setParameters({life:{traffic:1,beacons:true,windowDrops:true},weather:{rain:1}});
+    e.seek(0);const first=e.readPixels();e.update(2);const second=e.readPixels();
+    const trafficMoves=first.some((v,i)=>v!==second[i]);
+    for(let i=0;i<10;i++)e.update(1);
+    const capture=()=>{const c=document.createElement('canvas');c.width=e.width;c.height=e.height;const ctx=c.getContext('2d');ctx.drawImage(e.canvas,0,0);return ctx.getImageData(0,0,c.width,c.height).data;};
+    e.setParameters({life:{windowDrops:false}});e.render();const dry=capture();
+    e.setParameters({life:{windowDrops:true}});e.render();const wet=capture();
+    let changed=0,roomLeaks=0;
+    for(let y=0;y<e.height;y++)for(let x=0;x<e.width;x++){
+      const i=(y*e.width+x)*4;
+      if(dry[i]!==wet[i]||dry[i+1]!==wet[i+1]||dry[i+2]!==wet[i+2]){
+        changed++;if(y<100||y>850||x<100||x>1630)roomLeaks++;
+      }
+    }
+    return {trafficMoves,changed,roomLeaks};
+  });
+  console.log(JSON.stringify({life}));assert.ok(life.trafficMoves&&life.changed>0&&life.roomLeaks===0);
   console.log('PASS: 11 GPU/API checks and apartment menu control');
 }finally{await browser?.close();server.kill();}

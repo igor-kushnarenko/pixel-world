@@ -48,6 +48,7 @@ app.innerHTML = `
       <div class="menu-section"><p class="section-label">В КВАРТИРЕ</p><div class="device-grid"><button id="lamp-left" class="device" aria-pressed="false">${svg('lamp')}<span>Лампа</span><i></i></button><button id="lamp-right" class="device" aria-pressed="false">${svg('panel')}<span>Панель</span><i></i></button><button id="radio-toggle" class="device" aria-pressed="false">${svg('radio')}<span>Радио</span><i></i></button></div></div>
       <div id="radio-controls" class="radio-controls" hidden><div class="radio-station"><button id="station-prev" class="plain-icon backwards" aria-label="Предыдущая станция">${svg('arrow')}</button><div><small id="radio-state" data-state="off">РАДИО ВЫКЛЮЧЕНО</small><span id="station-name">Тихий эфир</span></div><button id="station-next" class="plain-icon" aria-label="Следующая станция">${svg('arrow')}</button></div><label class="select-label" for="station-select">Станция</label><select id="station-select" aria-label="Радиостанция"></select><label class="slider-row" for="radio-volume"><span>Громкость радио</span><input id="radio-volume" type="range" min="0" max="100" value="50"><output id="radio-volume-value">50%</output></label></div>
       <div class="menu-section"><p class="section-label">ЗА ОКНОМ</p><div class="weather-switches"><button id="cloud-toggle" aria-pressed="false">${svg('cloud')} Облака</button><button id="rain-toggle" aria-pressed="false">${svg('rain')} Дождь</button></div><label class="slider-row" for="rain-level"><span>Сила дождя</span><input id="rain-level" type="range" min="0" max="100" value="0"><output id="rain-level-value">0%</output></label><label class="slider-row" for="city-lights"><span>Огни города</span><input id="city-lights" type="range" min="0" max="100" value="55"><output id="city-lights-value">55%</output></label><details><summary>Облака и ветер <span>+</span></summary><label class="slider-row" for="cloud-coverage"><span>Облачность</span><input id="cloud-coverage" type="range" min="0" max="100" value="70"><output id="cloud-coverage-value">70%</output></label><label class="slider-row" for="wind-speed"><span>Ветер</span><input id="wind-speed" type="range" min="0" max="100" value="25"><output id="wind-speed-value">25%</output></label></details></div>
+      <details class="menu-section"><summary>Жизнь города и стекло <span>+</span></summary><div class="weather-switches"><button id="beacon-toggle" aria-pressed="true">Огни вышек</button><button id="drops-toggle" aria-pressed="true">Капли на стекле</button></div><label class="slider-row" for="traffic-level"><span>Воздушный поток</span><input id="traffic-level" type="range" min="0" max="100"><output id="traffic-level-value">55%</output></label></details>
       <details class="menu-section"><summary>Дымка и туман по планам <span>+</span></summary><div id="atmosphere-controls"></div></details>
       <div class="view-selector"><button id="view-prev" class="plain-icon backwards" aria-label="Предыдущий вид города">${svg('arrow')}</button><span id="view-name">Панорама</span><button id="view-next" class="plain-icon" aria-label="Следующий вид города">${svg('arrow')}</button></div>
       <div class="menu-section sound-section"><div class="sound-heading"><button id="sound-toggle" aria-pressed="false">${svg('sound')}<span id="sound-label">Без звука</span></button><button id="fullscreen" class="plain-icon" aria-label="На весь экран">${svg('full')}</button></div><label class="slider-row" for="master-volume"><span>Общая громкость</span><input id="master-volume" type="range" min="0" max="100" value="40"><output id="master-volume-value">40%</output></label><output id="audio-status" class="audio-status" data-state="locked">Звук включается только с вашего разрешения</output></div>
@@ -78,6 +79,8 @@ let flight = new PanoramaFlight(settings.city);
 function notify(text: string) { $('scene-toast').textContent = text; $('scene-toast').classList.add('show'); clearTimeout(toastTimer); toastTimer = window.setTimeout(() => $('scene-toast').classList.remove('show'), 2300); }
 function active(id: string, value: boolean) { $(id).setAttribute('aria-pressed', String(value)); }
 function syncUI() {
+  active('beacon-toggle',settings.beacons);active('drops-toggle',settings.windowDrops);
+  $<HTMLInputElement>('traffic-level').value=String(Math.round(settings.traffic*100));$('traffic-level-value').textContent=`${Math.round(settings.traffic*100)}%`;
   for (const input of document.querySelectorAll<HTMLInputElement>('[data-atmosphere]')) {
     const value = settings.atmosphere[input.dataset.layer!]?.[input.dataset.atmosphere as keyof LayerAtmosphere] ?? 0;
     input.value = String(Math.round(value * 100)); $(input.id + '-value').textContent = `${Math.round(value * 100)}%`;
@@ -120,6 +123,7 @@ async function enableSound() {
 }
 function applyEnvironment() {
   engine.setParameters({
+    life: { beacons: settings.beacons, traffic: settings.traffic, windowDrops: settings.windowDrops },
     clouds: { enabled: settings.clouds, coverage: settings.coverage, density: 0.72, scale: 0.3, windSpeed: settings.cloudSpeed },
     weather: { rain: settings.rain, stormEnabled: settings.sky === 'storm', fog: 0, layers: settings.atmosphere },
     lighting: { cityLightsIntensity: settings.lights, interiorLightsEnabled: settings.left || settings.right, radioBacklightEnabled: radioOn }
@@ -212,6 +216,9 @@ async function main() {
   $('lamp-right').onclick = () => setLamp('right'); $('hit-right').onclick = () => setLamp('right');
   $('radio-toggle').onclick = () => { void toggleRadio(); }; $('hit-radio').onclick = () => { void toggleRadio(); };
   $('cloud-toggle').onclick = () => { settings.clouds = !settings.clouds; if (settings.clouds && settings.coverage === 0) settings.coverage = 0.7; applyEnvironment(); };
+  $('beacon-toggle').onclick=()=>{settings.beacons=!settings.beacons;applyEnvironment();};
+  $('drops-toggle').onclick=()=>{settings.windowDrops=!settings.windowDrops;applyEnvironment();};
+  $<HTMLInputElement>('traffic-level').oninput=e=>{settings.traffic=Number((e.target as HTMLInputElement).value)/100;applyEnvironment();};
   $('rain-toggle').onclick = () => { settings.rain = settings.rain > 0 ? 0 : 0.5; applyEnvironment(); };
   for (const [id, key] of [['rain-level', 'rain'], ['city-lights', 'lights'], ['cloud-coverage', 'coverage'], ['wind-speed', 'cloudSpeed'], ['master-volume', 'volume'], ['radio-volume', 'radioVolume']] as const) {
     $<HTMLInputElement>(id).oninput = e => { settings[key] = Number((e.target as HTMLInputElement).value) / 100; applyEnvironment(); };
@@ -224,6 +231,7 @@ async function main() {
   $('fullscreen').onclick = () => { if (document.fullscreenElement) void document.exitFullscreen(); else void document.documentElement.requestFullscreen().catch(() => notify('Полный экран недоступен в этом браузере')); };
   $('reset-scene').onclick = () => {
     settings = structuredClone(DEFAULT_SETTINGS); targetTime = shownTime = 22; lastAppliedTime = -1;
+    engine.seek(0);
     radioOn = false; tuner.setOn(false); roomLeft = roomRight = roomRadio = 0;
     flight.target(settings.city);
     applyEnvironment(); notify('Снова тихая ночь');

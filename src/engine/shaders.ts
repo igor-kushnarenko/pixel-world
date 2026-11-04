@@ -87,7 +87,7 @@ uniform sampler2D uImage;
 uniform vec2 uOrigin, uSize;
 uniform float uOpacity, uReceivesFlash;
 uniform sampler2D uCityMask;
-uniform float uHasCityMask, uCityLights, uTime;
+uniform float uHasCityMask, uCityLights, uTime, uBeacons;
 uniform vec3 uTint;
 void main() {
   vec2 pos=vec2(vUv.x,1.0-vUv.y)*uResolution-uOrigin;
@@ -104,6 +104,12 @@ void main() {
       col=mix(col*0.3,c.rgb*1.28,uCityLights)*pulse+vec3(0.045,0.028,0.0)*uCityLights;
     }
     if(m.b>0.5) col=mix(col*0.4,c.rgb*1.25,uCityLights)*(0.97+0.03*sin(uTime*0.7+phase));
+  }
+  if(uBeacons>0.5 && c.r>0.55 && c.r>c.g*2.5 && c.r>c.b*2.5){
+    float cluster=hash(floor(pos/16.0));
+    float phase=fract(uTime/(2.0+cluster*3.0)+cluster);
+    float pulse=smoothstep(0.0,0.08,phase)*(1.0-smoothstep(0.16,0.3,phase));
+    col=mix(c.rgb*0.14,c.rgb*1.3,pulse);
   }
   c.rgb=col;
   c.rgb+=c.rgb*uFlash*uReceivesFlash*1.7;
@@ -195,8 +201,57 @@ void main() {
   gl_FragColor=vec4(vec3(0.5,0.61,0.74)+uFlash*0.3,min(0.5,alpha)*windowAt(vUv));
 }
 `;
+export const trafficFragment = common + stableNoise + /* glsl */`
+uniform float uTime,uTraffic,uTrafficRank;
+uniform vec2 uOrigin,uSize,uNative;
+void main(){
+  vec2 p=floor(gl_FragCoord.xy); p.y=uResolution.y-p.y;
+  vec2 local=(p-uOrigin)*uNative/uSize;
+  vec3 color=vec3(0.0); float alpha=0.0;
+  for(int route=0;route<2;route++) for(int direction=0;direction<2;direction++) for(int car=0;car<6;car++){
+    float r=float(route),d=float(direction),k=float(car);
+    float seed=cloudHash(ivec2(car+route*31,direction+int(uTrafficRank)*11));
+    if(seed>uTraffic) continue;
+    float signX=d<0.5?1.0:-1.0;
+    float span=uNative.x+40.0;
+    float x=mod(seed*span+uTime*(12.0+uTrafficRank*5.0+seed*9.0)*signX,span)-20.0;
+    float y=uNative.y*(0.3+r*0.18)+d*9.0+sin(x*0.004+seed*6.0)*3.0;
+    vec2 delta=local-floor(vec2(x,y));
+    float size=uTrafficRank<1.5?0.0:3.0;
+    float body=(1.0-step(size+1.0,abs(delta.x)))*(1.0-step(uTrafficRank<1.5?1.0:2.0,abs(delta.y)));
+    vec3 lamp=d<0.5?vec3(0.45,0.85,1.0):vec3(1.0,0.35,0.18);
+    float cabin=uTrafficRank>=1.5?(1.0-step(2.0,abs(delta.x)))*(1.0-step(0.5,abs(delta.y+2.0))):0.0;
+    float head=step(size-0.5,delta.x*signX);
+    color+=body*(uTrafficRank<1.5?lamp*0.7:mix(vec3(0.12,0.26,0.34),lamp,head))+cabin*vec3(0.2,0.5,0.6);
+    alpha=max(alpha,max(body,cabin));
+  }
+  gl_FragColor=vec4(color,alpha*windowAt(vUv));
+}
+`;
 export const outputFragment = /* glsl */`
+precision highp float;
 varying vec2 vUv;
-uniform sampler2D uFrame;
-void main(){ gl_FragColor=texture2D(uFrame,vUv); }
+uniform sampler2D uFrame,uGlassMask;
+uniform vec2 uGlassResolution;
+uniform vec4 uDrops[32];
+uniform float uDropCount;
+void main(){
+  vec4 base=texture2D(uFrame,vUv);
+  if(texture2D(uGlassMask,vUv).r<0.5){gl_FragColor=base;return;}
+  vec2 pixel=floor(vUv*uGlassResolution)+0.5;
+  vec2 shift=vec2(0.0);float rim=0.0;
+  for(int i=0;i<32;i++){
+    if(float(i)>=uDropCount) break;
+    vec4 drop=uDrops[i];
+    vec2 delta=pixel-drop.xy;
+    vec2 size=vec2(drop.z,drop.z*(1.2+drop.w*0.015));
+    vec2 q=delta/size;float dist=dot(q,q);
+    if(dist<1.0){ shift=q*drop.z*0.65;rim=(step(0.65,dist)*0.1+step(0.88,dist)*0.06)*step(0.0,q.y);break; }
+    // A thin wet wake above each moving droplet.
+    if(abs(delta.x)<0.65 && delta.y>0.0 && delta.y<drop.w*0.25) shift=vec2(1.0,0.0);
+  }
+  vec2 uv=(floor(pixel+shift)+0.5)/uGlassResolution;
+  if(texture2D(uGlassMask,uv).r>0.5) base=texture2D(uFrame,uv);
+  gl_FragColor=vec4(base.rgb+rim,1.0);
+}
 `;

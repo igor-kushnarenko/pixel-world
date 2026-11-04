@@ -8,7 +8,8 @@ import type { IUniform } from 'three';
 import type { AtmosphereParameters, CloudPlane, EngineDiagnostics, EngineOptions, LightMask, LayerPlacement, ParameterPatch, TextureSource } from './types';
 import { getPreset, paletteAt, parsePreset, resolveParameters, rgb } from './parameters';
 import { frameDeltaSeconds } from './clock';
-import { vertex, skyFragment, cloudFragment, imageFragment, roomFragment, lightFragment, fogFragment, layerAtmosphereFragment, rainFragment, outputFragment } from './shaders';
+import { WindowDrops } from './WindowDrops';
+import { vertex, skyFragment, cloudFragment, imageFragment, roomFragment, lightFragment, fogFragment, layerAtmosphereFragment, rainFragment, trafficFragment, outputFragment } from './shaders';
 
 interface Pass { id: string; mesh: Mesh<PlaneGeometry, ShaderMaterial>; uniforms: Record<string, IUniform>; userVisible: boolean }
 interface CloudPass extends Pass { name: 'far' | 'low'; offset: Vector2 }
@@ -31,6 +32,8 @@ export class AtmosphereEngine {
   private readonly clouds: CloudPass[] = [];
   private readonly lights: LightPass[] = [];
   private readonly atmosphereLayers = new Map<string, Pass>();
+  private readonly trafficLayers = new Map<string, Pass>();
+  private readonly drops: WindowDrops;
   private readonly imageLayers = new Map<string, { pass: Pass; native: Vector2 }>();
   private readonly observer: ResizeObserver;
   private parameters: AtmosphereParameters;
@@ -53,6 +56,7 @@ export class AtmosphereEngine {
     if (![width, height].every(n => Number.isInteger(n) && n >= 1 && n <= 4096)) throw new Error('Scene dimensions must be integer logical pixels, 1…4096');
     const ids = ['sky', 'cloud-far', 'cloud-low', 'fog', 'rain', ...layers.map(l => l.id), ...lights.map(l => l.id)];
     ids.push(...layers.filter(l => l.scope === 'world').map(l => `atmosphere-${l.id}`));
+    ids.push(...layers.filter(l => l.scope === 'world').map(l => `traffic-${l.id}`));
     if (new Set(ids).size !== ids.length) throw new Error('Layer IDs must be unique, including reserved atmosphere IDs');
     for (const layer of [...layers, ...lights]) {
       if (!Number.isFinite(layer.depth) || layer.depth <= 0 || layer.depth >= 1000) throw new Error(`Invalid depth for ${layer.id}: expected 0 < depth < 1000`);
@@ -72,6 +76,7 @@ export class AtmosphereEngine {
     this.options = options;
     this.width = options.scene.width; this.height = options.scene.height;
     this.parameters = resolveParameters(options.parameters);
+    this.drops = new WindowDrops(this.width, this.height, this.parameters.seed);
     this.renderer = new WebGLRenderer({ antialias: false, alpha: false, powerPreference: 'low-power', premultipliedAlpha: false });
     this.renderer.setPixelRatio(1);
     this.renderer.setSize(this.width, this.height, false);
@@ -91,7 +96,7 @@ export class AtmosphereEngine {
     this.canvas.style.display = 'block'; this.canvas.style.flexShrink = '0';
     this.windowTexture = this.whiteTexture();
     this.camera.position.z = 1;
-    this.outputMaterial = new ShaderMaterial({ vertexShader: vertex, fragmentShader: outputFragment, uniforms: { uFrame: { value: this.target.texture } }, depthTest: false, depthWrite: false });
+    this.outputMaterial = new ShaderMaterial({ vertexShader: vertex, fragmentShader: outputFragment, uniforms: { uFrame: { value: this.target.texture }, uGlassMask: { value: this.windowTexture }, uGlassResolution: { value: new Vector2(this.width,this.height) }, uDrops: { value: Array.from({length:32},()=>new Vector4()) }, uDropCount: { value: 0 } }, depthTest: false, depthWrite: false });
     this.output.add(new Mesh(this.geometry, this.outputMaterial));
     options.container.append(this.canvas);
     this.observer = new ResizeObserver(() => this.resize());
@@ -136,6 +141,7 @@ export class AtmosphereEngine {
   private async initialize() {
     const scene = this.options.scene;
     if (scene.windowMask) this.windowTexture = await this.texture(scene.windowMask, true);
+    this.outputMaterial.uniforms.uGlassMask.value = this.windowTexture;
     this.pass('sky', skyFragment, 0, true, {
       uTop: { value: [0, 0, 0] }, uBottom: { value: [0, 0, 0] }, uGlow: { value: 0 },
       uStars: { value: 0 }, uNight: { value: 1 }, uDither: { value: 0 }
@@ -163,7 +169,7 @@ export class AtmosphereEngine {
         uTint: { value: new Vector3(...(layer.tint ?? [1, 1, 1])) },
         uTime: { value: 0 }, uHasCityMask: { value: layer.cityLightMask ? 1 : 0 },
         uCityMask: { value: layer.cityLightMask ? await this.texture(layer.cityLightMask) : this.windowTexture },
-        uCityLights: { value: this.parameters.lighting.cityLightsIntensity }
+        uCityLights: { value: this.parameters.lighting.cityLightsIntensity }, uBeacons: { value: 0 }
       };
       const checkSameSize = (t: Texture) => {
         const image = t.image as { width: number; height: number };
@@ -202,6 +208,12 @@ export class AtmosphereEngine {
         uAtmosphere: { value: new Vector4() }, uAtmosphereColor: { value: [0, 0, 0] }, uDrift: { value: new Vector2() }
       });
       this.atmosphereLayers.set(layer.id, pass);
+      const image = this.imageLayers.get(layer.id)!;
+      const traffic = this.pass(`traffic-${layer.id}`, trafficFragment, layer.depth+(next-layer.depth)*0.25, true, {
+        uTime: { value:0 }, uTraffic: { value:0 }, uTrafficRank: { value:this.trafficLayers.size },
+        uOrigin: image.pass.uniforms.uOrigin, uSize: image.pass.uniforms.uSize, uNative: { value:image.native }
+      });
+      this.trafficLayers.set(layer.id,traffic);
     }
     this.prepareAtmosphere(this.parameters);
   }
@@ -218,6 +230,7 @@ export class AtmosphereEngine {
     this.assertAlive();
     const next = resolveParameters(patch, this.parameters);
     this.prepareAtmosphere(next);
+    if (next.seed !== this.parameters.seed) this.drops.reset(next.seed);
     if (!next.weather.stormEnabled) this.flashAge = Infinity;
     if (next.weather.stormEnabled && !this.parameters.weather.stormEnabled) this.nextFlash = this.time + 14;
     this.parameters = next;
@@ -235,6 +248,7 @@ export class AtmosphereEngine {
     this.assertAlive();
     if (!Number.isFinite(seconds) || seconds < 0) throw new Error('Time must be finite and non-negative');
     this.time = seconds; this.flashAge = Infinity; this.nextFlash = seconds + 14;
+    this.drops.reset(this.parameters.seed);
     for (const cloud of this.clouds) { cloud.offset.set(0, 0); this.moveCloud(cloud, this.parameters.clouds.layers[cloud.name], seconds); }
     this.render();
   }
@@ -289,6 +303,7 @@ export class AtmosphereEngine {
     this.assertAlive();
     if (!Number.isFinite(deltaSeconds) || deltaSeconds < 0) throw new Error('deltaSeconds must be finite and non-negative');
     this.time += deltaSeconds; this.flashAge += deltaSeconds;
+    if (this.parameters.life.windowDrops && this.options.scene.windowMask) this.drops.update(deltaSeconds,this.parameters.weather.rain);
     for (const cloud of this.clouds) this.moveCloud(cloud, this.parameters.clouds.layers[cloud.name], deltaSeconds);
     if (this.parameters.weather.stormEnabled && this.time >= this.nextFlash) {
       this.triggerLightning();
@@ -318,6 +333,7 @@ export class AtmosphereEngine {
       pass.uniforms.uFlash.value = flash; pass.uniforms.uSteps.value = p.render.colorSteps; pass.uniforms.uSeed.value = p.seed;
       if (pass.uniforms.uTime) pass.uniforms.uTime.value = this.time;
       if (pass.uniforms.uCityLights) pass.uniforms.uCityLights.value = p.lighting.cityLightsIntensity;
+      if (pass.uniforms.uBeacons) pass.uniforms.uBeacons.value = p.life.beacons ? 1 : 0;
       pass.mesh.visible = pass.userVisible;
     }
     const sky = this.passes[0].uniforms;
@@ -333,6 +349,13 @@ export class AtmosphereEngine {
       u.uCloudColor.value = colors.cloud;
     }
     const fog = this.passes.find(pass => pass.id === 'fog')!;
+    for(const pass of this.trafficLayers.values()) {
+      pass.mesh.visible=pass.userVisible && p.life.traffic>0;
+      pass.uniforms.uTraffic.value=p.life.traffic;
+    }
+    const drops=p.life.windowDrops && this.options.scene.windowMask ? this.drops.drops : [];
+    this.outputMaterial.uniforms.uDropCount.value=drops.length;
+    drops.forEach((d,i)=>this.outputMaterial.uniforms.uDrops.value[i].set(d.x,this.height-d.y,Math.sqrt(d.mass),d.speed));
     for (const [id, pass] of this.atmosphereLayers) {
       const layer = p.weather.layers[id];
       pass.mesh.visible = pass.userVisible && (layer.hazeDensity > 0 || (layer.fogDensity > 0 && layer.fogAmount > 0));
