@@ -9,7 +9,7 @@ import type { AtmosphereParameters, CloudPlane, EngineDiagnostics, EngineOptions
 import { getPreset, paletteAt, parsePreset, resolveParameters, rgb } from './parameters';
 import { frameDeltaSeconds } from './clock';
 import { WindowDrops } from './WindowDrops';
-import { sampleTraffic } from './traffic';
+import { sampleTraffic, sampleCloseTraffic } from './traffic';
 import { vertex, skyFragment, cloudFragment, imageFragment, roomFragment, lightFragment, fogFragment, layerAtmosphereFragment, rainFragment, trafficFragment, outputFragment } from './shaders';
 
 interface Pass { id: string; mesh: Mesh<PlaneGeometry, ShaderMaterial>; uniforms: Record<string, IUniform>; userVisible: boolean }
@@ -58,6 +58,7 @@ export class AtmosphereEngine {
     const ids = ['sky', 'cloud-far', 'cloud-low', 'fog', 'rain', ...layers.map(l => l.id), ...lights.map(l => l.id)];
     ids.push(...layers.filter(l => l.scope === 'world').map(l => `atmosphere-${l.id}`));
     ids.push(...layers.filter(l => l.scope === 'world').map(l => `traffic-${l.id}`));
+    ids.push(...layers.filter(l => l.scope === 'world' && l.closeTraffic).map(l => `traffic-close-${l.id}`));
     if (new Set(ids).size !== ids.length) throw new Error('Layer IDs must be unique, including reserved atmosphere IDs');
     for (const layer of [...layers, ...lights]) {
       if (!Number.isFinite(layer.depth) || layer.depth <= 0 || layer.depth >= 1000) throw new Error(`Invalid depth for ${layer.id}: expected 0 < depth < 1000`);
@@ -212,10 +213,18 @@ export class AtmosphereEngine {
       const image = this.imageLayers.get(layer.id)!;
       const traffic = this.pass(`traffic-${layer.id}`, trafficFragment, layer.depth+(next-layer.depth)*0.25, true, {
         uVehicleCount: { value:0 }, uTrafficRank: { value:(scene.layers ?? []).filter(l=>l.scope==='world' && l.depth<layer.depth).length },
-        uVehicles: { value:Array.from({length:24},()=>new Vector4()) }, uVehicleStyles: { value:Array.from({length:24},()=>new Vector4()) },
+        uDetailedTraffic: { value:0 },
+        uVehicles: { value:Array.from({length:60},()=>new Vector4()) }, uVehicleStyles: { value:Array.from({length:60},()=>new Vector4()) },
         uOrigin: image.pass.uniforms.uOrigin, uSize: image.pass.uniforms.uSize, uNative: { value:image.native }
       });
       this.trafficLayers.set(layer.id,traffic);
+      if(layer.closeTraffic){
+        const close=this.pass(`traffic-close-${layer.id}`,trafficFragment,layer.depth+(next-layer.depth)*0.75,true,{
+          ...traffic.uniforms,uDetailedTraffic:{value:1},uTrafficRank:{value:2},uVehicleCount:{value:0},
+          uVehicles:{value:Array.from({length:60},()=>new Vector4())},uVehicleStyles:{value:Array.from({length:60},()=>new Vector4())}
+        });
+        this.trafficLayers.set(`close-${layer.id}`,close);
+      }
     }
     this.prepareAtmosphere(this.parameters);
   }
@@ -355,7 +364,9 @@ export class AtmosphereEngine {
       pass.mesh.visible=pass.userVisible && p.life.traffic>0;
       if(pass.mesh.visible){
         const native=pass.uniforms.uNative.value;
-        const vehicles=sampleTraffic(native.x,native.y,pass.uniforms.uTrafficRank.value,this.time,p.life.traffic,p.seed);
+        const vehicles=pass.uniforms.uDetailedTraffic.value>0
+          ? sampleCloseTraffic(native.x,native.y,this.time,p.life.traffic,p.seed)
+          : sampleTraffic(native.x,native.y,pass.uniforms.uTrafficRank.value,this.time,p.life.traffic,p.seed);
         pass.uniforms.uVehicleCount.value=vehicles.length;
         vehicles.forEach((v,i)=>{
           pass.uniforms.uVehicles.value[i].set(v.x,v.y,v.dx,v.dy);

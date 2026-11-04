@@ -26,7 +26,8 @@ export async function createApartmentLocation(city: CityId): Promise<SceneDefini
     layers: [
       ...ids.map((id, i) => ({
         id, source: `${originals}${files[i]}.png`, depth: 20 + i * 20, scope: 'world' as const,
-        receivesLightning: true, placement: CITY_LAYOUTS[city].layers[id], cityLightMask: `${masks}${id}_fx.png`
+        receivesLightning: true, placement: CITY_LAYOUTS[city].layers[id], cityLightMask: `${masks}${id}_fx.png`,
+        closeTraffic: id === 'midnear'
       })),
       { id: 'apartment', source: room, depth: 100, scope: 'room', receivesLightning: true,
         tint: [0.76, 0.78, 0.84], roomLights: {

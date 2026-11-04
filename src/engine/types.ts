@@ -61,6 +61,8 @@ export interface ImageLayer {
   cityLightMask?: TextureSource;
   roomLights?: RoomLightAssets;
   tint?: [number, number, number];
+  /** Extra detailed corridor after this layer, occluded by the next world layer. */
+  closeTraffic?: boolean;
 }
 /** White/red=receives light, black/transparent=no light. Aligned to the whole scene. */
 export interface LightMask {

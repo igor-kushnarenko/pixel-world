@@ -202,19 +202,19 @@ void main() {
 }
 `;
 export const trafficFragment = common + /* glsl */`
-uniform float uVehicleCount,uTrafficRank;
-uniform vec4 uVehicles[24],uVehicleStyles[24];
+uniform float uVehicleCount,uTrafficRank,uDetailedTraffic;
+uniform vec4 uVehicles[60],uVehicleStyles[60];
 uniform vec2 uOrigin,uSize,uNative;
 void main(){
   vec2 p=floor(gl_FragCoord.xy); p.y=uResolution.y-p.y;
   vec2 local=(p-uOrigin)*uNative/uSize;
   vec3 color=vec3(0.0); float alpha=0.0;
-  for(int i=0;i<24;i++){
+  for(int i=0;i<60;i++){
     if(float(i)>=uVehicleCount) break;
     vec4 v=uVehicles[i],style=uVehicleStyles[i];
     vec2 delta=local-floor(v.xy);
-    if(abs(delta.x)>16.0 || abs(delta.y)>16.0) continue;
-    vec2 q=floor(vec2(dot(delta,v.zw),dot(delta,vec2(-v.w,v.z)))+0.5);
+    if(abs(delta.x)>16.0+uDetailedTraffic*24.0 || abs(delta.y)>16.0+uDetailedTraffic*24.0) continue;
+    vec2 q=floor(vec2(dot(delta,v.zw),dot(delta,vec2(-v.w,v.z)))/(1.0+uDetailedTraffic*1.5)+0.5);
     vec3 lamp=v.z>0.0?vec3(0.5,0.85,1.0):vec3(1.0,0.36,0.18);
     if(uTrafficRank<1.5){
       float dotPixel=1.0-step(0.75,length(delta));
@@ -227,6 +227,8 @@ void main(){
     float roof=step(abs(q.x+(kind<1.5?1.0:0.0)),kind<0.5?1.0+variant:halfLength-2.0)*step(abs(q.y+2.0),0.0);
     if(kind>0.5 && kind<1.5) roof*=1.0-step(halfLength-2.0,q.x);
     float shape=max(body,roof);
+    float enginePod=uDetailedTraffic*step(abs(q.y-3.0),0.0)*step(abs(q.x),halfLength-1.0);
+    shape=max(shape,enginePod);
     vec3 paint=mix(vec3(0.15,0.31,0.42),vec3(0.45,0.25,0.16),style.z);
     if(kind>1.5) paint=mix(vec3(0.2,0.34,0.4),vec3(0.5,0.38,0.16),style.z);
     float windows=step(1.0,mod(q.x+halfLength,3.0))*step(abs(q.y+1.0),0.0);
@@ -234,6 +236,8 @@ void main(){
     else if(q.x>halfLength-2.0 && q.y<0.0) paint=vec3(0.32,0.65,0.78);
     if(q.x>halfLength-1.0) paint=lamp;
     if(q.x<-halfLength+1.0) paint=vec3(0.8,0.12,0.07);
+    if(enginePod>0.5) paint=mix(vec3(0.08,0.15,0.2),vec3(0.28,0.65,0.9),step(halfLength-3.0,abs(q.x)));
+    if(uDetailedTraffic>0.5 && kind>0.5 && kind<1.5 && q.x<halfLength-2.0 && q.y>=0.0) paint*=mix(0.65,1.0,step(0.5,mod(q.x+halfLength,3.0)));
     color+=paint*shape;alpha=max(alpha,shape);
   }
   gl_FragColor=vec4(color,alpha*windowAt(vUv));

@@ -52,7 +52,13 @@ try {
     const e=window.atmosphere;e.setParameters({life:{traffic:1,beacons:false,windowDrops:false},weather:{rain:0}});
     e.seek(0);const first=e.readPixels();e.update(2);const second=e.readPixels();
     const trafficMoves=first.some((v,i)=>v!==second[i]);
-    e.setParameters({life:{windowDrops:true},weather:{rain:1}});
+    const layers=e.getDiagnostics().layers;
+    const closeDepth=layers.find(l=>l.id==='traffic-close-midnear').depth;
+    const closeBetween=closeDepth>layers.find(l=>l.id==='midnear').depth&&closeDepth<layers.find(l=>l.id==='near').depth;
+    e.setLayerVisible('traffic-close-midnear',false);e.render();const hiddenClose=e.readPixels();
+    e.setLayerVisible('traffic-close-midnear',true);e.render();const shownClose=e.readPixels();
+    const closeVisible=shownClose.some((v,i)=>v!==hiddenClose[i]);
+    e.setParameters({life:{traffic:0,windowDrops:true},weather:{rain:1}});
     for(let i=0;i<10;i++)e.update(1);
     const capture=()=>{const c=document.createElement('canvas');c.width=e.width;c.height=e.height;const ctx=c.getContext('2d');ctx.drawImage(e.canvas,0,0);return ctx.getImageData(0,0,c.width,c.height).data;};
     e.setParameters({life:{windowDrops:false}});e.render();const dry=capture();
@@ -64,8 +70,8 @@ try {
         changed++;if(y<100||y>850||x<100||x>1630)roomLeaks++;
       }
     }
-    return {trafficMoves,changed,roomLeaks};
+    return {trafficMoves,closeBetween,closeVisible,changed,roomLeaks};
   });
-  console.log(JSON.stringify({life}));assert.ok(life.trafficMoves&&life.changed>0&&life.roomLeaks===0);
+  console.log(JSON.stringify({life}));assert.ok(life.trafficMoves&&life.closeBetween&&life.closeVisible&&life.changed>0&&life.roomLeaks===0);
   console.log('PASS: 11 GPU/API checks and apartment menu control');
 }finally{await browser?.close();server.kill();}

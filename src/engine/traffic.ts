@@ -17,10 +17,10 @@ export function airRoute(route: number, x: number, width: number, height: number
   }
   return { y: height * (0.18 + route * 0.095) + bend, slope };
 }
-/** At most 24 sprites per plane; route math is evaluated once per frame on CPU. */
+/** At most 60 distant or 24 middle sprites; evaluated once per frame on CPU. */
 export function sampleTraffic(width: number, height: number, rank: number, time: number, density: number, seed: number): AirVehicle[] {
   const result: AirVehicle[] = [];
-  const routes = routeCount(rank), count = rank < 2 ? 2 : 3;
+  const routes = routeCount(rank), count = rank < 2 ? 5 : 3;
   for (let route = 0; route < routes; route++) for (let direction = 0; direction < 2; direction++) for (let car = 0; car < count; car++) {
     const id = seed + rank * 1777 + route * 113 + direction * 37 + car * 7;
     if (random(id + 1) >= density) continue;
@@ -35,4 +35,20 @@ export function sampleTraffic(width: number, height: number, rank: number, time:
       kind, variant: Math.floor(random(id + 5) * 3), tint: random(id + 6) });
   }
   return result;
+}
+
+export function sampleCloseTraffic(width: number, height: number, time: number, density: number, seed: number): AirVehicle[] {
+  const cars: AirVehicle[] = [];
+  for(let direction=0;direction<2;direction++)for(let i=0;i<6;i++){
+    if(random(seed+i*31+direction*223)>=density)continue;
+    const sign=direction===0?1:-1;
+    const span=width+160, speed=30+(i%3)*5;
+    const x=(((i/6+direction*0.07)*span+time*speed*sign)%span+span)%span-80;
+    const wave=(x/width-0.5)*Math.PI;
+    const slope=Math.cos(wave)*height*0.025*Math.PI/width;
+    const norm=Math.hypot(1,slope);
+    cars.push({x,y:height*(0.55+direction*0.055)+Math.sin(wave)*height*0.025,
+      dx:sign/norm,dy:sign*slope/norm,kind:i%3,variant:Math.floor(i/2)%3,tint:random(seed+i*13+direction*17)});
+  }
+  return cars;
 }
