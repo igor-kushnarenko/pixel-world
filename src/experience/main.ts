@@ -49,7 +49,7 @@ app.innerHTML = `
       <div class="menu-section"><p class="section-label">ЗА ОКНОМ</p><div class="weather-switches"><button id="cloud-toggle" aria-pressed="false">${svg('cloud')} Облака</button><button id="rain-toggle" aria-pressed="false">${svg('rain')} Дождь</button></div><label class="slider-row" for="rain-level"><span>Сила дождя</span><input id="rain-level" type="range" min="0" max="100" value="0"><output id="rain-level-value">0%</output></label><label class="slider-row" for="city-lights"><span>Огни города</span><input id="city-lights" type="range" min="0" max="100" value="55"><output id="city-lights-value">55%</output></label><details><summary>Облака и ветер <span>+</span></summary><label class="slider-row" for="cloud-coverage"><span>Облачность</span><input id="cloud-coverage" type="range" min="0" max="100" value="70"><output id="cloud-coverage-value">70%</output></label><label class="slider-row" for="wind-speed"><span>Ветер</span><input id="wind-speed" type="range" min="0" max="100" value="25"><output id="wind-speed-value">25%</output></label></details></div>
       <div class="view-selector"><button id="view-prev" class="plain-icon backwards" aria-label="Предыдущий вид города">${svg('arrow')}</button><span id="view-name">Панорама</span><button id="view-next" class="plain-icon" aria-label="Следующий вид города">${svg('arrow')}</button></div>
       <div class="menu-section sound-section"><div class="sound-heading"><button id="sound-toggle" aria-pressed="false">${svg('sound')}<span id="sound-label">Без звука</span></button><button id="fullscreen" class="plain-icon" aria-label="На весь экран">${svg('full')}</button></div><label class="slider-row" for="master-volume"><span>Общая громкость</span><input id="master-volume" type="range" min="0" max="100" value="40"><output id="master-volume-value">40%</output></label><output id="audio-status" class="audio-status" data-state="locked">Звук включается только с вашего разрешения</output></div>
-      <div class="menu-footer"><button id="reset-scene">Вернуть тихую ночь</button><a href="${base}?mode=lab">Мастерская ↗</a></div><p class="key-hints">L / K — свет · R — радио · M — звук · Esc — закрыть</p>
+      <div class="menu-footer"><button id="reset-scene">Вернуть тихую ночь</button><a href="${base}?mode=lab">Мастерская ↗</a></div><p class="key-hints">← / → — вид · L / K — свет · R — радио · M — звук · Esc — закрыть</p>
     </section>
     <div id="scene-toast" class="scene-toast" role="status" aria-live="polite"></div>
   </main>`;
@@ -213,9 +213,14 @@ async function main() {
   };
   window.addEventListener('pointermove', wake, { passive: true }); window.addEventListener('pointerdown', wake, { passive: true });
   window.addEventListener('keydown', e => {
-    if (!entered || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (!entered || e.defaultPrevented || e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key === 'Escape') { menu(false); return; }
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLTextAreaElement || (e.target instanceof HTMLElement && e.target.isContentEditable)) return;
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      e.preventDefault();
+      if (!e.repeat) changeView(e.key === 'ArrowLeft' ? -1 : 1);
+      wake(); return;
+    }
     const key = e.key.toLowerCase();
     if (key === 'l' || key === 'д') setLamp('left'); else if (key === 'k' || key === 'л') setLamp('right');
     else if (key === 'r' || key === 'к') void toggleRadio(); else if (key === 'n' || key === 'т') { if (radioOn) tuner.turn(1); }
