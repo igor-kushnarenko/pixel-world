@@ -1,6 +1,12 @@
 import type { Texture } from 'three';
 
 export type PaletteName = 'cyberpunk_night' | 'coastal' | 'forest';
+export interface LayerAtmosphere {
+  hazeDensity: number;
+  fogDensity: number;
+  fogAmount: number;
+  billowing: number;
+}
 export interface CloudPlane {
   enabled: boolean;
   depth: number;
@@ -22,7 +28,7 @@ export interface AtmosphereParameters {
     windSpeed: number; windDirectionDeg: number;
     layers: { far: CloudPlane; low: CloudPlane };
   };
-  weather: { fog: number; rain: number; stormEnabled: boolean };
+  weather: { fog: number; rain: number; stormEnabled: boolean; layers: Record<string, LayerAtmosphere> };
   lighting: {
     cityLightsIntensity: number; exteriorRoomFill: number;
     interiorLightsEnabled: boolean; radioBacklightEnabled: boolean; computerEnabled: boolean;

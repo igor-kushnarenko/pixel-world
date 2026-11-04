@@ -11,7 +11,8 @@
     "preview": "vite preview --host 127.0.0.1",
     "test": "vitest run",
     "test:browser": "node tests/browser.mjs",
-    "test:clouds": "node tests/cloud-stability.mjs"
+    "test:clouds": "node tests/cloud-stability.mjs",
+    "test:atmosphere": "node tests/layer-atmosphere.mjs"
   },
   "exports": {
     ".": {

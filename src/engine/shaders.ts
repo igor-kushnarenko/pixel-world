@@ -40,10 +40,7 @@ void main() {
   gl_FragColor=vec4(c,windowAt(vUv));
 }
 `;
-export const cloudFragment = common + /* glsl */`
-uniform vec2 uOffset;
-uniform float uCoverage, uDensity, uScale, uHeight, uThickness, uCloudSteps, uStorm;
-uniform vec3 uCloudColor;
+const stableNoise = /* glsl */`
 // Integer lattice hash avoids sin()/large-float rounding at threshold edges.
 // Keep this independent of the star/rain hashes and of animation time.
 float cloudHash(ivec2 p) {
@@ -64,6 +61,11 @@ float cloudField(vec2 p) {
   for(int i=0;i<4;i++){ n+=a*cloudNoise(p); p=p*2.03+vec2(13.1,7.7); a*=0.47; }
   return n;
 }
+`;
+export const cloudFragment = common + stableNoise + /* glsl */`
+uniform vec2 uOffset;
+uniform float uCoverage, uDensity, uScale, uHeight, uThickness, uCloudSteps, uStorm;
+uniform vec3 uCloudColor;
 void main() {
   vec2 pixel=floor(gl_FragCoord.xy);
   // Only integer translations reach the noise. No subpixel interpolation in time.
@@ -150,6 +152,22 @@ uniform vec3 uFogColor;
 void main() {
   float a=quant(pow(1.0-vUv.y,2.0)*uFog,12.0);
   gl_FragColor=vec4(uFogColor+uFlash*0.3,a*windowAt(vUv));
+}
+`;
+export const layerAtmosphereFragment = common + stableNoise + /* glsl */`
+uniform vec4 uAtmosphere;
+uniform vec3 uAtmosphereColor;
+uniform vec2 uDrift;
+void main() {
+  vec2 pixel=floor(gl_FragCoord.xy);
+  float bottom=1.0-(pixel.y+0.5)/uResolution.y;
+  float amount=uAtmosphere.z;
+  float rise=smoothstep(1.0-amount,1.0,bottom);
+  vec2 p=(pixel+floor(uDrift))*vec2(0.012,0.025);
+  float rolls=0.5+0.5*cloudNoise(p);
+  float fog=uAtmosphere.y*rise*mix(1.0,rolls,uAtmosphere.w);
+  float alpha=quant(1.0-(1.0-uAtmosphere.x)*(1.0-fog),32.0);
+  gl_FragColor=vec4(uAtmosphereColor+uFlash*0.3,alpha*windowAt(vUv));
 }
 `;
 export const rainFragment = common + /* glsl */`

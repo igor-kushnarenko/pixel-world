@@ -8,7 +8,7 @@ import type { IUniform } from 'three';
 import type { AtmosphereParameters, CloudPlane, EngineDiagnostics, EngineOptions, LightMask, LayerPlacement, ParameterPatch, TextureSource } from './types';
 import { getPreset, paletteAt, parsePreset, resolveParameters, rgb } from './parameters';
 import { frameDeltaSeconds } from './clock';
-import { vertex, skyFragment, cloudFragment, imageFragment, roomFragment, lightFragment, fogFragment, rainFragment, outputFragment } from './shaders';
+import { vertex, skyFragment, cloudFragment, imageFragment, roomFragment, lightFragment, fogFragment, layerAtmosphereFragment, rainFragment, outputFragment } from './shaders';
 
 interface Pass { id: string; mesh: Mesh<PlaneGeometry, ShaderMaterial>; uniforms: Record<string, IUniform>; userVisible: boolean }
 interface CloudPass extends Pass { name: 'far' | 'low'; offset: Vector2 }
@@ -30,6 +30,7 @@ export class AtmosphereEngine {
   private readonly passes: Pass[] = [];
   private readonly clouds: CloudPass[] = [];
   private readonly lights: LightPass[] = [];
+  private readonly atmosphereLayers = new Map<string, Pass>();
   private readonly imageLayers = new Map<string, { pass: Pass; native: Vector2 }>();
   private readonly observer: ResizeObserver;
   private parameters: AtmosphereParameters;
@@ -51,7 +52,8 @@ export class AtmosphereEngine {
     const { width, height, layers = [], lights = [] } = options.scene;
     if (![width, height].every(n => Number.isInteger(n) && n >= 1 && n <= 4096)) throw new Error('Scene dimensions must be integer logical pixels, 1…4096');
     const ids = ['sky', 'cloud-far', 'cloud-low', 'fog', 'rain', ...layers.map(l => l.id), ...lights.map(l => l.id)];
-    if (new Set(ids).size !== ids.length) throw new Error('Layer IDs must be unique, including reserved sky/cloud-far/cloud-low/fog/rain');
+    ids.push(...layers.filter(l => l.scope === 'world').map(l => `atmosphere-${l.id}`));
+    if (new Set(ids).size !== ids.length) throw new Error('Layer IDs must be unique, including reserved atmosphere IDs');
     for (const layer of [...layers, ...lights]) {
       if (!Number.isFinite(layer.depth) || layer.depth <= 0 || layer.depth >= 1000) throw new Error(`Invalid depth for ${layer.id}: expected 0 < depth < 1000`);
       if (!['world', 'room'].includes(layer.scope)) throw new Error(`Invalid scope: ${layer.id}`);
@@ -192,12 +194,30 @@ export class AtmosphereEngine {
       }, true);
       this.lights.push(Object.assign(pass, { config: { ...light } }));
     }
+    const depths = this.passes.map(p => p.mesh.renderOrder);
+    for (const layer of scene.layers ?? []) {
+      if (layer.scope !== 'world') continue;
+      const next = Math.min(1000, ...depths.filter(d => d > layer.depth));
+      const pass = this.pass(`atmosphere-${layer.id}`, layerAtmosphereFragment, (layer.depth + next) / 2, true, {
+        uAtmosphere: { value: new Vector4() }, uAtmosphereColor: { value: [0, 0, 0] }, uDrift: { value: new Vector2() }
+      });
+      this.atmosphereLayers.set(layer.id, pass);
+    }
+    this.prepareAtmosphere(this.parameters);
+  }
+
+  private prepareAtmosphere(p: AtmosphereParameters) {
+    for (const id of Object.keys(p.weather.layers)) if (!this.atmosphereLayers.has(id)) throw new Error(`Unknown world atmosphere layer: ${id}`);
+    for (const id of this.atmosphereLayers.keys()) {
+      if (!Object.hasOwn(p.weather.layers, id)) p.weather.layers[id] = { hazeDensity: 0, fogDensity: 0, fogAmount: 0.5, billowing: 0 };
+    }
   }
 
   getParameters(): AtmosphereParameters { return structuredClone(this.parameters); }
   setParameters(patch: ParameterPatch): void {
     this.assertAlive();
     const next = resolveParameters(patch, this.parameters);
+    this.prepareAtmosphere(next);
     if (!next.weather.stormEnabled) this.flashAge = Infinity;
     if (next.weather.stormEnabled && !this.parameters.weather.stormEnabled) this.nextFlash = this.time + 14;
     this.parameters = next;
@@ -207,6 +227,7 @@ export class AtmosphereEngine {
   importPreset(json: string): void { this.replaceParameters(parsePreset(json)); }
   exportPreset(): string { return JSON.stringify(this.parameters, null, 2); }
   private replaceParameters(parameters: AtmosphereParameters) {
+    this.prepareAtmosphere(parameters);
     this.assertAlive(); this.parameters = parameters; this.seek(0);
   }
   /** Absolute deterministic state for screenshots, replays and preset comparisons. */
@@ -312,6 +333,13 @@ export class AtmosphereEngine {
       u.uCloudColor.value = colors.cloud;
     }
     const fog = this.passes.find(pass => pass.id === 'fog')!;
+    for (const [id, pass] of this.atmosphereLayers) {
+      const layer = p.weather.layers[id];
+      pass.mesh.visible = pass.userVisible && (layer.hazeDensity > 0 || (layer.fogDensity > 0 && layer.fogAmount > 0));
+      pass.uniforms.uAtmosphere.value.set(layer.hazeDensity, layer.fogDensity, Math.max(0.0001, layer.fogAmount), layer.billowing);
+      pass.uniforms.uAtmosphereColor.value = colors.bottom.map((c, i) => c * 0.4 + colors.cloud[i] * 0.6);
+      pass.uniforms.uDrift.value.set(this.time * 2, 0);
+    }
     fog.mesh.visible = fog.userVisible && p.weather.fog > 0; fog.uniforms.uFog.value = p.weather.fog; fog.uniforms.uFogColor.value = colors.bottom;
     const rain = this.passes.find(pass => pass.id === 'rain')!;
     rain.mesh.visible = rain.userVisible && p.weather.rain > 0; rain.uniforms.uRain.value = p.weather.rain; rain.uniforms.uTime.value = this.time;

@@ -1,16 +1,20 @@
 import { CITY_IDS } from './config';
 import type { CityId } from './config';
+import type { LayerAtmosphere } from '../engine';
+export const ATMOSPHERE_NAMES: Record<string, string> = { far: 'Дальний город', midfar: 'Средний дальний', midnear: 'Средний ближний', near: 'Ближний город' };
 export type SkyMood = 'night' | 'dusk' | 'day' | 'storm';
 export interface ExperienceSettings {
   version: 1; sky: SkyMood; city: CityId;
   clouds: boolean; cloudSpeed: number; coverage: number; rain: number;
   lights: number; volume: number; radioVolume: number; station: string;
   left: boolean; right: boolean;
+  atmosphere: Record<string, LayerAtmosphere>;
 }
 export const SETTINGS_KEY = 'pixel-world.apartment.v1';
 export const DEFAULT_SETTINGS: ExperienceSettings = {
   version: 1, sky: 'night', city: 'panorama', clouds: false, cloudSpeed: 0.25, coverage: 0.7,
-  rain: 0, lights: 0.55, volume: 0.4, radioVolume: 0.5, station: '', left: false, right: false
+  rain: 0, lights: 0.55, volume: 0.4, radioVolume: 0.5, station: '', left: false, right: false,
+  atmosphere: Object.fromEntries(Object.keys(ATMOSPHERE_NAMES).map(id => [id, { hazeDensity: 0, fogDensity: 0, fogAmount: 0.5, billowing: 0 }]))
 };
 const unit = (v: unknown, fallback: number) => typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : fallback;
 export function normalizeSettings(value: unknown): ExperienceSettings {
@@ -24,7 +28,12 @@ export function normalizeSettings(value: unknown): ExperienceSettings {
     rain: unit(r.rain, d.rain), lights: unit(r.lights, d.lights),
     volume: unit(r.volume, d.volume), radioVolume: unit(r.radioVolume, d.radioVolume),
     station: typeof r.station === 'string' ? r.station.slice(0, 128) : '',
-    left: typeof r.left === 'boolean' ? r.left : false, right: typeof r.right === 'boolean' ? r.right : false
+    left: typeof r.left === 'boolean' ? r.left : false, right: typeof r.right === 'boolean' ? r.right : false,
+    atmosphere: Object.fromEntries(Object.keys(ATMOSPHERE_NAMES).map(id => {
+      const saved = r.atmosphere && typeof r.atmosphere === 'object' ? (r.atmosphere as Record<string, unknown>)[id] : null;
+      const layer = saved && typeof saved === 'object' ? saved as Record<string, unknown> : {};
+      return [id, { hazeDensity: unit(layer.hazeDensity, 0), fogDensity: unit(layer.fogDensity, 0), fogAmount: unit(layer.fogAmount, 0.5), billowing: unit(layer.billowing, 0) }];
+    }))
   };
 }
 export function loadSettings(): ExperienceSettings {

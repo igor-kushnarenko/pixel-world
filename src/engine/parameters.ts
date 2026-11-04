@@ -10,7 +10,7 @@ export const DEFAULT_PARAMETERS: AtmosphereParameters = {
       low: { enabled: true, depth: 30, coverage: 1, density: 1, scale: 0.85, height: 0.38, thickness: 0.31, speed: 1, colorSteps: 4 }
     }
   },
-  weather: { fog: 0, rain: 0, stormEnabled: false },
+  weather: { fog: 0, rain: 0, stormEnabled: false, layers: {} },
   lighting: { cityLightsIntensity: 0.55, exteriorRoomFill: 0.15, interiorLightsEnabled: false, radioBacklightEnabled: false, computerEnabled: false },
   render: { sampling: 'nearest', dithering: false, pixelGrid: 'match_scene_assets', colorSteps: 12 }
 };
@@ -43,6 +43,10 @@ function range(value: number, min: number, max: number, name: string, integer = 
 }
 export function resolveParameters(patch: ParameterPatch = {}, base = DEFAULT_PARAMETERS): AtmosphereParameters {
   const p = structuredClone(base);
+  for (const id of Object.keys(patch.weather?.layers ?? {})) {
+    if (!/^[a-zA-Z0-9_-]+$/.test(id) || ['__proto__', 'constructor', 'prototype'].includes(id)) throw new Error('Invalid atmosphere layer ID');
+    if (!Object.hasOwn(p.weather.layers, id)) p.weather.layers[id] = { hazeDensity: 0, fogDensity: 0, fogAmount: 0.5, billowing: 0 };
+  }
   mergeKnown(p as unknown as Record<string, unknown>, patch as Record<string, unknown>);
   if (p.presetVersion !== 1) throw new Error('Unsupported presetVersion (expected 1)');
   if (p.sky.moonEnabled !== false) throw new Error('Moon is intentionally unsupported in this prototype');
@@ -59,6 +63,9 @@ export function resolveParameters(patch: ParameterPatch = {}, base = DEFAULT_PAR
     range(layer.colorSteps, 2, 16, `${name}.colorSteps`, true);
   }
   for (const key of ['fog', 'rain'] as const) range(p.weather[key], 0, 1, `weather.${key}`);
+  for (const [id, layer] of Object.entries(p.weather.layers)) {
+    for (const key of ['hazeDensity', 'fogDensity', 'fogAmount', 'billowing'] as const) range(layer[key], 0, 1, `weather.layers.${id}.${key}`);
+  }
   range(p.lighting.cityLightsIntensity, 0, 1, 'lighting.cityLightsIntensity');
   range(p.lighting.exteriorRoomFill, 0, 1, 'lighting.exteriorRoomFill');
   range(p.render.colorSteps, 2, 32, 'render.colorSteps', true);
