@@ -1,0 +1,47 @@
+{
+  "result": [
+    {
+      "plane": "far",
+      "seconds": 0,
+      "changed": 0,
+      "compared": 4717233,
+      "cloudPixels": 320094
+    },
+    {
+      "plane": "far",
+      "seconds": 60,
+      "changed": 0,
+      "compared": 4717233,
+      "cloudPixels": 299895
+    },
+    {
+      "plane": "far",
+      "seconds": 3600,
+      "changed": 0,
+      "compared": 4717233,
+      "cloudPixels": 243775
+    },
+    {
+      "plane": "low",
+      "seconds": 0,
+      "changed": 0,
+      "compared": 4717233,
+      "cloudPixels": 451059
+    },
+    {
+      "plane": "low",
+      "seconds": 60,
+      "changed": 0,
+      "compared": 4717233,
+      "cloudPixels": 506390
+    },
+    {
+      "plane": "low",
+      "seconds": 3600,
+      "changed": 0,
+      "compared": 4717233,
+      "cloudPixels": 515955
+    }
+  ],
+  "errors": []
+}

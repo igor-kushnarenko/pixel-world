@@ -10,7 +10,8 @@
     "build:engine": "vite build --config vite.engine.config.ts && tsc -p tsconfig.engine.json",
     "preview": "vite preview --host 127.0.0.1",
     "test": "vitest run",
-    "test:browser": "node tests/browser.mjs"
+    "test:browser": "node tests/browser.mjs",
+    "test:clouds": "node tests/cloud-stability.mjs"
   },
   "exports": {
     ".": {

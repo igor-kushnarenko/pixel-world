@@ -44,12 +44,32 @@ export const cloudFragment = common + /* glsl */`
 uniform vec2 uOffset;
 uniform float uCoverage, uDensity, uScale, uHeight, uThickness, uCloudSteps, uStorm;
 uniform vec3 uCloudColor;
+// Integer lattice hash avoids sin()/large-float rounding at threshold edges.
+// Keep this independent of the star/rain hashes and of animation time.
+float cloudHash(ivec2 p) {
+  uint h=uint(p.x)*1597334677u ^ uint(p.y)*3812015801u ^ uint(uSeed)*2798796415u;
+  h=(h^(h>>16u))*2246822519u;
+  h=(h^(h>>13u))*3266489917u;
+  h=h^(h>>16u);
+  return float(h>>8u)*(1.0/16777216.0);
+}
+float cloudNoise(vec2 p) {
+  ivec2 i=ivec2(floor(p));
+  vec2 f=fract(p); f=f*f*(3.0-2.0*f);
+  return mix(mix(cloudHash(i),cloudHash(i+ivec2(1,0)),f.x),
+    mix(cloudHash(i+ivec2(0,1)),cloudHash(i+ivec2(1,1)),f.x),f.y);
+}
+float cloudField(vec2 p) {
+  float n=0.0, a=0.54;
+  for(int i=0;i<4;i++){ n+=a*cloudNoise(p); p=p*2.03+vec2(13.1,7.7); a*=0.47; }
+  return n;
+}
 void main() {
-  vec2 pixel=floor(vUv*uResolution);
+  vec2 pixel=floor(gl_FragCoord.xy);
   // Only integer translations reach the noise. No subpixel interpolation in time.
   vec2 p=(pixel+floor(uOffset+0.5))*vec2(0.018,0.038)*uScale;
-  float n=fbm(p);
-  float screenY=1.0-vUv.y;
+  float n=cloudField(p);
+  float screenY=1.0-(pixel.y+0.5)/uResolution.y;
   float band=1.0-smoothstep(uThickness*0.25,max(0.001,uThickness),abs(screenY-uHeight));
   float shape=n*band;
   float threshold=mix(1.0,0.18,uCoverage);

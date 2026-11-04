@@ -12,6 +12,7 @@ artifacts/*
 !artifacts/psd-import-report.json
 !artifacts/deployment-report.json
 !artifacts/experience-report.json
+!artifacts/cloud-stability-report.json
 *.zip
 .env
 .env.*
