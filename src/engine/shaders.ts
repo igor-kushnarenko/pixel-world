@@ -121,6 +121,9 @@ uniform sampler2D uImage, uLeftLight, uRightLight, uEmitters;
 uniform vec2 uOrigin, uSize, uRadioLed;
 uniform vec4 uRadioDial;
 uniform vec3 uTint, uRoomControls;
+uniform sampler2D uComputerScreen;
+uniform vec4 uComputerRect;
+uniform float uComputerOn;
 uniform float uOpacity, uReceivesFlash;
 void main(){
   vec2 p=vec2(vUv.x,1.0-vUv.y)*uResolution-uOrigin;
@@ -139,6 +142,12 @@ void main(){
   float led=1.0-step(2.1,length(pixel-uRadioLed));
   col+=vec3(0.25,1.0,0.35)*led*controls.z*0.8;
   col+=c.rgb*uFlash*uReceivesFlash*0.6;
+  vec2 pc=(p-uComputerRect.xy)/max(vec2(1.0),uComputerRect.zw-uComputerRect.xy);
+  float screen=step(0.0,pc.x)*step(pc.x,1.0)*step(0.0,pc.y)*step(pc.y,1.0);
+  vec3 display=texture2D(uComputerScreen,vec2(pc.x,1.0-pc.y)).rgb;
+  col=mix(col,display,screen*uComputerOn);
+  float spill=quant(max(0.0,1.0-length((p-vec2(uComputerRect.x+80.0,uComputerRect.w))/vec2(155.0,75.0))),16.0);
+  col+=vec3(0.025,0.065,0.08)*spill*uComputerOn*(1.0-screen);
   gl_FragColor=vec4(col,c.a*uOpacity);
 }
 `;

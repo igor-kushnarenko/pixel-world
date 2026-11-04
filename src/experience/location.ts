@@ -15,7 +15,7 @@ async function windowMask(roomUrl: string): Promise<HTMLCanvasElement> {
   }
   ctx.putImageData(pixels, 0, 0); return c;
 }
-export async function createApartmentLocation(city: CityId): Promise<SceneDefinition> {
+export async function createApartmentLocation(city: CityId, computerScreen?:HTMLCanvasElement): Promise<SceneDefinition> {
   const originals = `${import.meta.env.BASE_URL}assets/nightcity/originals/`;
   const masks = `${import.meta.env.BASE_URL}assets/apartment/masks/`;
   const room = `${originals}room.png`;
@@ -32,7 +32,7 @@ export async function createApartmentLocation(city: CityId): Promise<SceneDefini
       { id: 'apartment', source: room, depth: 100, scope: 'room', receivesLightning: true,
         tint: [0.76, 0.78, 0.84], roomLights: {
           left: `${masks}lit_left.png`, right: `${masks}lit_right.png`, emitters: `${masks}room_emit.png`,
-          radioDial: RADIO_DIAL, radioLed: RADIO_LED
+          radioDial: RADIO_DIAL, radioLed: RADIO_LED, computerScreen,computerRect:[384,644,560,744]
         }
       }
     ]

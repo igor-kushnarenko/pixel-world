@@ -23,7 +23,8 @@ export const CITY_LAYOUTS: Record<CityId, { name: string; roomAmbient: number; l
 export const HOTSPOTS = {
   left: { label: 'Включить лампу', key: 'L', rect: [174, 546, 216, 602] },
   right: { label: 'Включить настенную панель', key: 'K', rect: [1612, 240, 1662, 462] },
-  radio: { label: 'Включить радио', key: 'R', rect: [1218, 676, 1470, 800] }
+  radio: { label: 'Включить радио', key: 'R', rect: [1218, 676, 1470, 800] },
+  computer:{label:'Включить компьютер',key:'C',rect:[360,620,595,817]}
 } as const;
 export const RADIO_DIAL: [number, number, number, number] = [1325, 714, 1451, 745];
 export const RADIO_LED: [number, number] = [1418, 752];

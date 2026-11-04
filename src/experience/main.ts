@@ -1,6 +1,7 @@
 import './style.css';
 import './interface.css';
 import { mountInterface } from './interface';
+import { mountWeather } from './weather';
 import { AtmosphereEngine } from '../engine';
 import { ambientLighting } from './lighting';
 import { PanoramaFlight } from './flight';
@@ -16,6 +17,7 @@ import { Tuner } from './vendor/radio.js';
 const base = import.meta.env.BASE_URL;
 const query = new URLSearchParams(location.search);
 const icons = {
+  computer:'<rect x="4" y="3" width="16" height="12" rx="2"/><path d="m4 15-2 5h20l-2-5M9 18h6"/>',
   menu: '<path d="M5 7h14M5 12h14M5 17h14"/>', close: '<path d="m6 6 12 12M18 6 6 18"/>',
   sound: '<path d="M11 5 6 9H3v6h3l5 4V5ZM15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14"/>',
   full: '<path d="M8 3H3v5M16 3h5v5M21 16v5h-5M8 21H3v-5"/>',
@@ -64,7 +66,7 @@ let settings = loadSettings();
 if (query.has('fresh')) settings = structuredClone(DEFAULT_SETTINGS);
 let engine: AtmosphereEngine;
 let entered = false, soundEnabled = false, radioOn = false, disposed = false;
-let roomLeft = 0, roomRight = 0, roomRadio = 0;
+let roomLeft = 0, roomRight = 0, roomRadio = 0,roomComputer=0;
 let toastTimer = 0, idleTimer = 0, closeTimer = 0, frameId = 0;
 const audio = new Ambience();
 const tuner = new Tuner({ audio, onName: (name: string | null) => {
@@ -78,10 +80,13 @@ let lastAppliedTime = shownTime;
 let lastLightLevel = -1;
 let flight = new PanoramaFlight(settings.city);
 const navigation=mountInterface(svg,open=>menu(open));
+const realWorld=mountWeather(()=>{if(!$('scene-menu').hidden && !$('panel-scene').hidden)return;navigation.open('scene');},()=>{if(engine)engine.setComputerLevel('apartment',roomComputer,true);});
+window.addEventListener('pagehide',()=>realWorld.dispose(),{once:true});
 
 function notify(text: string) { $('scene-toast').textContent = text; $('scene-toast').classList.add('show'); clearTimeout(toastTimer); toastTimer = window.setTimeout(() => $('scene-toast').classList.remove('show'), 2300); }
 function active(id: string, value: boolean) { $(id).setAttribute('aria-pressed', String(value)); }
 function syncUI() {
+  active('computer-toggle',settings.computer);$('hit-computer').setAttribute('aria-label',`${settings.computer?'Выключить':'Включить'} компьютер`);
   active('beacon-toggle',settings.beacons);active('drops-toggle',settings.windowDrops);
   $<HTMLInputElement>('traffic-level').value=String(Math.round(settings.traffic*100));$('traffic-level-value').textContent=`${Math.round(settings.traffic*100)}%`;
   for (const input of document.querySelectorAll<HTMLInputElement>('[data-atmosphere]')) {
@@ -97,7 +102,7 @@ function syncUI() {
   }
   $('view-name').textContent = CITY_LAYOUTS[settings.city].name;
   const moodLabel = settings.sky === 'night' && settings.clouds ? 'Облачная ночь' : moodNames[settings.sky];
-  $('mood-status').textContent = `${Math.floor(timeFor[settings.sky]).toString().padStart(2, '0')}:${settings.sky === 'dusk' ? '24' : '00'} · ${moodLabel}${settings.rain > 0 && settings.sky !== 'storm' ? ' · Дождь' : ''}`;
+  $('mood-status').textContent = `Сцена · ${Math.floor(timeFor[settings.sky]).toString().padStart(2, '0')}:${settings.sky === 'dusk' ? '24' : '00'} · ${moodLabel}${settings.rain > 0 && settings.sky !== 'storm' ? ' · Дождь' : ''}`;
   $('hit-left').setAttribute('aria-label', `${settings.left ? 'Выключить' : 'Включить'} лампу`);
   $('hit-right').setAttribute('aria-label', `${settings.right ? 'Выключить' : 'Включить'} настенную панель`);
   $('hit-radio').setAttribute('aria-label', `${radioOn ? 'Выключить' : 'Включить'} радио`);
@@ -129,7 +134,7 @@ function applyEnvironment() {
     life: { beacons: settings.beacons, traffic: settings.traffic, windowDrops: settings.windowDrops },
     clouds: { enabled: settings.clouds, coverage: settings.coverage, density: 0.72, scale: 0.3, windSpeed: settings.cloudSpeed },
     weather: { rain: settings.rain, stormEnabled: settings.sky === 'storm', fog: 0, layers: settings.atmosphere },
-    lighting: { cityLightsIntensity: settings.lights, interiorLightsEnabled: settings.left || settings.right, radioBacklightEnabled: radioOn }
+    lighting: { cityLightsIntensity: settings.lights, interiorLightsEnabled: settings.left || settings.right, radioBacklightEnabled: radioOn,computerEnabled:settings.computer }
   });
   lastLightLevel = -1;
   syncUI(); saveSettings(settings);
@@ -187,7 +192,7 @@ function fitScene() {
 }
 
 async function main() {
-  engine = await AtmosphereEngine.create({ container: $('scene-stage'), scene: await createApartmentLocation(settings.city),
+  engine = await AtmosphereEngine.create({ container: $('scene-stage'), scene: await createApartmentLocation(settings.city,realWorld.screen),
     autoRender: false, parameters: { timeOfDay: shownTime }, onLightning: () => audio.thunder(), onError: e => { $('load-status').textContent = e.message; notify('Рендер приостановлен. Попробуйте обновить страницу.'); } });
   const observer = new ResizeObserver(fitScene); observer.observe($('scene-stage')); fitScene();
   window.addEventListener('fullscreenchange', fitScene);
@@ -217,6 +222,8 @@ async function main() {
   $('lamp-left').onclick = () => setLamp('left'); $('hit-left').onclick = () => setLamp('left');
   $('lamp-right').onclick = () => setLamp('right'); $('hit-right').onclick = () => setLamp('right');
   $('radio-toggle').onclick = () => { void toggleRadio(); }; $('hit-radio').onclick = () => { void toggleRadio(); };
+  const toggleComputer=()=>{settings.computer=!settings.computer;applyEnvironment();audio.click();notify(settings.computer?'Компьютер включён':'Компьютер выключен');};
+  $('computer-toggle').onclick=toggleComputer;$('hit-computer').onclick=toggleComputer;
   $('cloud-toggle').onclick = () => { settings.clouds = !settings.clouds; if (settings.clouds && settings.coverage === 0) settings.coverage = 0.7; applyEnvironment(); };
   $('beacon-toggle').onclick=()=>{settings.beacons=!settings.beacons;applyEnvironment();};
   $('drops-toggle').onclick=()=>{settings.windowDrops=!settings.windowDrops;applyEnvironment();};
@@ -235,6 +242,7 @@ async function main() {
     settings = structuredClone(DEFAULT_SETTINGS); targetTime = shownTime = 22; lastAppliedTime = -1;
     engine.seek(0);
     radioOn = false; tuner.setOn(false); roomLeft = roomRight = roomRadio = 0;
+    roomComputer=0;
     flight.target(settings.city);
     applyEnvironment(); notify('Снова тихая ночь');
   };
@@ -249,7 +257,8 @@ async function main() {
       wake(); return;
     }
     const key = e.key.toLowerCase();
-    if (key === 'l' || key === 'д') setLamp('left'); else if (key === 'k' || key === 'л') setLamp('right');
+    if(key==='c'||key==='с')toggleComputer();
+    else if (key === 'l' || key === 'д') setLamp('left'); else if (key === 'k' || key === 'л') setLamp('right');
     else if (key === 'r' || key === 'к') void toggleRadio(); else if (key === 'n' || key === 'т') { if (radioOn) tuner.turn(1); }
     else if (key === 'm' || key === 'ь') $('sound-toggle').click(); else if (key === 'f' || key === 'а') $('fullscreen').click();
     wake();
@@ -269,6 +278,7 @@ async function main() {
       roomLeft += ((settings.left ? 1 : 0) - roomLeft) * a;
       roomRight += ((settings.right ? 1 : 0) - roomRight) * a;
       roomRadio += ((radioOn ? 1 : 0) - roomRadio) * a;
+      roomComputer+=((settings.computer?1:0)-roomComputer)*a;engine.setComputerLevel('apartment',roomComputer);
       engine.setRoomLightLevels('apartment', roomLeft, roomRight, roomRadio);
       const lighting = ambientLighting(shownTime, settings.sky, settings.city, flight.roomAmbient);
       const daylight = lighting.daylight;
@@ -277,7 +287,7 @@ async function main() {
       const lights = settings.lights * (1 - daylight * 0.65);
       if (Math.abs(lights - lastLightLevel) > 0.002) { lastLightLevel = lights; engine.setParameters({ lighting: { cityLightsIntensity: lights } }); }
       engine.update(dt);
-    } else if (query.has('paused')) { engine.setRoomLightLevels('apartment', settings.left ? 1 : 0, settings.right ? 1 : 0, radioOn ? 1 : 0); engine.render(); }
+    } else if (query.has('paused')) {roomComputer=settings.computer?1:0;engine.setComputerLevel('apartment',roomComputer); engine.setRoomLightLevels('apartment', settings.left ? 1 : 0, settings.right ? 1 : 0, radioOn ? 1 : 0); engine.render(); }
     frameId = requestAnimationFrame(frame);
   }
   frameId = requestAnimationFrame(frame);

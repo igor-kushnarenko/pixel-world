@@ -44,6 +44,8 @@ export interface LayerPlacement { x: number; y: number; scale: number }
 export interface RoomLightAssets {
   left: TextureSource; right: TextureSource; emitters: TextureSource;
   radioDial: [number, number, number, number]; radioLed: [number, number];
+  computerScreen?: TextureSource;
+  computerRect?: [number,number,number,number];
 }
 /** All coordinates are logical pixels from the top-left. Larger depth draws later. */
 export interface ImageLayer {

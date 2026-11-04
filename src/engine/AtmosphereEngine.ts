@@ -184,7 +184,9 @@ export class AtmosphereEngine {
         Object.assign(extra, {
           uLeftLight: { value: left }, uRightLight: { value: right }, uEmitters: { value: emitters },
           uRoomControls: { value: new Vector3() },
-          uRadioDial: { value: new Vector4(...layer.roomLights.radioDial) }, uRadioLed: { value: new Vector2(...layer.roomLights.radioLed) }
+          uRadioDial: { value: new Vector4(...layer.roomLights.radioDial) }, uRadioLed: { value: new Vector2(...layer.roomLights.radioLed) },
+          uComputerScreen:{value:layer.roomLights.computerScreen ? await this.texture(layer.roomLights.computerScreen):this.windowTexture},
+          uComputerRect:{value:new Vector4(...(layer.roomLights.computerRect??[0,0,0,0]))},uComputerOn:{value:0}
         });
       }
       const pass = this.pass(layer.id, layer.roomLights ? roomFragment : imageFragment, layer.depth, layer.scope === 'world', extra);
@@ -289,6 +291,13 @@ export class AtmosphereEngine {
     this.assertAlive(); const pass = this.imageLayers.get(id)?.pass;
     if (!pass?.uniforms.uRoomControls || ![left, right, radio].every(n => Number.isFinite(n) && n >= 0 && n <= 1)) throw new Error(`Invalid room light controls: ${id}`);
     pass.uniforms.uRoomControls.value.set(left, right, radio); this.renderAfterEdit();
+  }
+  setComputerLevel(id:string,level:number,refresh=false):void{
+    this.assertAlive();const pass=this.imageLayers.get(id)?.pass;
+    if(!pass?.uniforms.uComputerOn||!Number.isFinite(level)||level<0||level>1)throw new Error('Invalid computer control');
+    pass.uniforms.uComputerOn.value=level;
+    if(refresh)pass.uniforms.uComputerScreen.value.needsUpdate=true;
+    this.renderAfterEdit();
   }
   /** For an editor panorama view. Location art and masks themselves stay untouched. */
   setWindowMaskEnabled(enabled: boolean): void {

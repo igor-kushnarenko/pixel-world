@@ -1,9 +1,10 @@
 /** Task-based navigation; existing controls retain their IDs and event bindings. */
-export function mountInterface(icon: (name: 'cloud'|'sound'|'lamp'|'menu'|'full') => string, toggle: (open: boolean) => void) {
+export function mountInterface(icon: (name: 'cloud'|'sound'|'lamp'|'menu'|'full'|'computer') => string, toggle: (open: boolean) => void) {
   const el = (id: string) => document.getElementById(id)!;
   const panel=el('scene-menu'), header=panel.querySelector('.menu-heading')!;
   const weather=el('cloud-toggle').closest('.menu-section')!;
   const room=el('lamp-left').closest('.menu-section')!;
+  const computer=document.createElement('button');computer.id='computer-toggle';computer.className='device';computer.setAttribute('aria-pressed','false');computer.innerHTML=`${icon('computer')}<span>Компьютер</span><i></i>`;room.querySelector('.device-grid')!.append(computer);
   const radio=el('radio-toggle'), radioControls=el('radio-controls');
   const sound=el('sound-toggle').closest('.sound-section')!;
   const life=el('beacon-toggle').closest('details')!;

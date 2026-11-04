@@ -8,6 +8,7 @@ export interface ExperienceSettings {
   clouds: boolean; cloudSpeed: number; coverage: number; rain: number;
   lights: number; volume: number; radioVolume: number; station: string;
   left: boolean; right: boolean;
+  computer:boolean;
   beacons: boolean; traffic: number; windowDrops: boolean;
   atmosphere: Record<string, LayerAtmosphere>;
 }
@@ -16,6 +17,7 @@ export const DEFAULT_SETTINGS: ExperienceSettings = {
   version: 1, sky: 'night', city: 'panorama', clouds: false, cloudSpeed: 0.25, coverage: 0.7,
   rain: 0, lights: 0.55, volume: 0.4, radioVolume: 0.5, station: '', left: false, right: false,
   beacons: true, traffic: 0.55, windowDrops: true,
+  computer:false,
   atmosphere: Object.fromEntries(Object.keys(ATMOSPHERE_NAMES).map(id => [id, { hazeDensity: 0, fogDensity: 0, fogAmount: 0.5, billowing: 0 }]))
 };
 const unit = (v: unknown, fallback: number) => typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : fallback;
@@ -29,6 +31,7 @@ export function normalizeSettings(value: unknown): ExperienceSettings {
     cloudSpeed: unit(r.cloudSpeed, d.cloudSpeed), coverage: unit(r.coverage, d.coverage),
     rain: unit(r.rain, d.rain), lights: unit(r.lights, d.lights),
     beacons: typeof r.beacons === 'boolean' ? r.beacons : true,
+    computer:typeof r.computer==='boolean'?r.computer:false,
     traffic: unit(r.traffic, d.traffic), windowDrops: typeof r.windowDrops === 'boolean' ? r.windowDrops : true,
     volume: unit(r.volume, d.volume), radioVolume: unit(r.radioVolume, d.radioVolume),
     station: typeof r.station === 'string' ? r.station.slice(0, 128) : '',
