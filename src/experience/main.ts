@@ -159,9 +159,11 @@ async function enter(sound: boolean) {
   $('menu-toggle').focus(); syncUI(); wake();
 }
 function fitScene() {
-  const stage = $('scene-stage'), s = Math.min(stage.clientWidth / WIDTH, stage.clientHeight / HEIGHT);
-  const scale = s >= 1 ? Math.floor(s) : s;
-  const w = Math.floor(WIDTH * scale), h = Math.floor(HEIGHT * scale);
+  const stage = $('scene-stage'), fullscreen = !!document.fullscreenElement;
+  const s = (fullscreen ? Math.max : Math.min)(stage.clientWidth / WIDTH, stage.clientHeight / HEIGHT);
+  const scale = fullscreen ? s : s >= 1 ? Math.floor(s) : s;
+  const round = fullscreen ? Math.ceil : Math.floor;
+  const w = round(WIDTH * scale), h = round(HEIGHT * scale);
   const x = Math.floor((stage.clientWidth - w) / 2), y = Math.floor((stage.clientHeight - h) / 2);
   for (const [key, value] of Object.entries({ width: w, height: h, left: x, top: y })) stage.style.setProperty(`--scene-${key}`, `${value}px`);
   const hits = $('room-hotspots'); hits.style.cssText = `left:${x}px;top:${y}px;width:${w}px;height:${h}px`;
@@ -174,6 +176,7 @@ async function main() {
   engine = await AtmosphereEngine.create({ container: $('scene-stage'), scene: await createApartmentLocation(settings.city),
     autoRender: false, parameters: { timeOfDay: shownTime }, onLightning: () => audio.thunder(), onError: e => { $('load-status').textContent = e.message; notify('Рендер приостановлен. Попробуйте обновить страницу.'); } });
   const observer = new ResizeObserver(fitScene); observer.observe($('scene-stage')); fitScene();
+  window.addEventListener('fullscreenchange', fitScene);
   engine.canvas.setAttribute('aria-label', 'Ночная квартира с ноутбуком, кружкой и радио у окна');
   Object.assign(window, { atmosphere: engine });
   applyEnvironment();
