@@ -1,4 +1,6 @@
 import './style.css';
+import './interface.css';
+import { mountInterface } from './interface';
 import { AtmosphereEngine } from '../engine';
 import { ambientLighting } from './lighting';
 import { PanoramaFlight } from './flight';
@@ -75,6 +77,7 @@ let shownTime = timeFor[settings.sky], targetTime = shownTime;
 let lastAppliedTime = shownTime;
 let lastLightLevel = -1;
 let flight = new PanoramaFlight(settings.city);
+const navigation=mountInterface(svg,open=>menu(open));
 
 function notify(text: string) { $('scene-toast').textContent = text; $('scene-toast').classList.add('show'); clearTimeout(toastTimer); toastTimer = window.setTimeout(() => $('scene-toast').classList.remove('show'), 2300); }
 function active(id: string, value: boolean) { $(id).setAttribute('aria-pressed', String(value)); }
@@ -151,8 +154,9 @@ function changeView(direction: number) {
 function menu(open: boolean, focus = false) {
   clearTimeout(closeTimer); $('scene-menu').hidden = !open; $('scene-menu').toggleAttribute('inert', !open);
   $('menu-toggle').setAttribute('aria-expanded', String(open)); document.body.classList.toggle('menu-open', open);
+  navigation.sync(open);
   if (open && focus) $('menu-close').focus();
-  if (!open && $('scene-menu').contains(document.activeElement)) $('menu-toggle').focus();
+  if (!open && $('scene-menu').contains(document.activeElement)) navigation.focus();
   wake();
 }
 function wake() {
@@ -208,9 +212,7 @@ async function main() {
   $('load-status').textContent = 'Можно включить звук или остаться в тишине.';
   $<HTMLButtonElement>('enter-sound').disabled = false; $<HTMLButtonElement>('enter-quiet').disabled = false;
   $('enter-sound').onclick = () => { void enter(true); }; $('enter-quiet').onclick = () => { void enter(false); };
-  $('menu-toggle').onclick = () => menu($('scene-menu').hidden); $('menu-close').onclick = () => menu(false);
-  $('scene-menu').addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') closeTimer = window.setTimeout(() => { if (!$('scene-menu').contains(document.activeElement)) menu(false); }, 7000); });
-  $('scene-menu').addEventListener('pointerenter', () => clearTimeout(closeTimer));
+  $('menu-toggle').onclick = () => navigation.open('scene'); $('menu-close').onclick = () => menu(false);
   document.querySelectorAll<HTMLButtonElement>('[data-mood]').forEach(b => b.onclick = () => changeMood(b.dataset.mood as SkyMood));
   $('lamp-left').onclick = () => setLamp('left'); $('hit-left').onclick = () => setLamp('left');
   $('lamp-right').onclick = () => setLamp('right'); $('hit-right').onclick = () => setLamp('right');

@@ -44,6 +44,7 @@ try {
   console.log(JSON.stringify({checks,errors}));
   assert.ok(Object.values(checks).every(Boolean));assert.equal(errors.length,0);
   await page.locator('#enter-quiet').click();await page.locator('#menu-toggle').click();
+  await page.locator('#nav-detail').click();
   await page.locator('summary').filter({hasText:'Дымка и туман по планам'}).click();
   await page.locator('summary').filter({hasText:'Дальний город'}).click();
   await page.locator('#atmo-far-hazeDensity').fill('35');await page.locator('#atmo-far-hazeDensity').dispatchEvent('input');

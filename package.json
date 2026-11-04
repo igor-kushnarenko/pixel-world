@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:browser": "node tests/browser.mjs",
     "test:clouds": "node tests/cloud-stability.mjs",
-    "test:atmosphere": "node tests/layer-atmosphere.mjs"
+    "test:atmosphere": "node tests/layer-atmosphere.mjs",
+    "test:ui": "node tests/interface.mjs"
   },
   "exports": {
     ".": {
