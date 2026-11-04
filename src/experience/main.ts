@@ -1,5 +1,6 @@
 import './style.css';
-import { AtmosphereEngine, paletteAt } from '../engine';
+import { AtmosphereEngine } from '../engine';
+import { ambientLighting } from './lighting';
 import { frameDeltaSeconds } from '../engine/clock';
 import { createApartmentLocation } from './location';
 import { CITY_IDS, CITY_LAYOUTS, HEIGHT, HOTSPOTS, WIDTH, nextCity } from './config';
@@ -231,13 +232,10 @@ async function main() {
       roomRight += ((settings.right ? 1 : 0) - roomRight) * a;
       roomRadio += ((radioOn ? 1 : 0) - roomRadio) * a;
       engine.setRoomLightLevels('apartment', roomLeft, roomRight, roomRadio);
-      const daylight = paletteAt(shownTime, 'cyberpunk_night').ambient;
-      const night = (0.78 + daylight * 0.25) * (settings.sky === 'storm' ? 0.86 : 1);
-      const ambient = CITY_LAYOUTS[settings.city].roomAmbient;
-      engine.setLayerTint('apartment', [night * ambient * 0.95, night * ambient * 0.97, night * ambient]);
-      const storm = settings.sky === 'storm';
-      const grade: [number, number, number] = [(0.9 + daylight * 0.18) * (storm ? 0.91 : 1), (0.92 + daylight * 0.16) * (storm ? 0.93 : 1), (1 + daylight * 0.06) * (storm ? 0.95 : 1)];
-      for (const id of ['far', 'midfar', 'midnear', 'near']) engine.setLayerTint(id, grade);
+      const lighting = ambientLighting(shownTime, settings.sky, settings.city);
+      const daylight = lighting.daylight;
+      engine.setLayerTint('apartment', lighting.room);
+      for (const id of ['far', 'midfar', 'midnear', 'near']) engine.setLayerTint(id, lighting.city);
       const lights = settings.lights * (1 - daylight * 0.65);
       if (Math.abs(lights - lastLightLevel) > 0.002) { lastLightLevel = lights; engine.setParameters({ lighting: { cityLightsIntensity: lights } }); }
       engine.update(dt);

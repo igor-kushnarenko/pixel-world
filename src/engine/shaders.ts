@@ -79,9 +79,9 @@ void main() {
     float phase=floor(m.g*255.0+0.5);
     if(m.r>0.5){
       float pulse=0.985+0.015*sin(uTime*0.14+phase);
-      col=col*mix(0.3,1.28,uCityLights)*pulse+vec3(0.045,0.028,0.0)*uCityLights;
+      col=mix(col*0.3,c.rgb*1.28,uCityLights)*pulse+vec3(0.045,0.028,0.0)*uCityLights;
     }
-    if(m.b>0.5) col*=mix(0.4,1.25,uCityLights)*(0.97+0.03*sin(uTime*0.7+phase));
+    if(m.b>0.5) col=mix(col*0.4,c.rgb*1.25,uCityLights)*(0.97+0.03*sin(uTime*0.7+phase));
   }
   c.rgb=col;
   c.rgb+=c.rgb*uFlash*uReceivesFlash*1.7;
