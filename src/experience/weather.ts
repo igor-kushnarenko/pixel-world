@@ -12,17 +12,15 @@ export function weatherName(code:number){
   if(code>=95)return 'Гроза';if([71,73,75,77,85,86].includes(code))return 'Снег';
   if(code>=51&&code<=82)return 'Дождь';return 'Погода';
 }
-export function mountWeather(open:()=>void,refreshScreen:()=>void){
-  const screen=document.createElement('canvas');screen.width=176;screen.height=100;
+export function mountWeather(refreshScreen:()=>void){
+  const screen=document.createElement('canvas');screen.width=152;screen.height=104;
   let place:Place|null=DEFAULT_PLACE,temperature='',description='Загрузка…',updated='',disposed=false,revision=0;
   let weatherRequest:AbortController|undefined, searchRequest:AbortController|undefined;
   try{const saved=JSON.parse(localStorage.getItem(key)??'null');if(validPlace(saved))place=saved;}catch{}
-  const widget=document.createElement('button');widget.className='real-world';widget.id='real-world';widget.setAttribute('aria-label','Время и погода города');
-  widget.innerHTML='<time id="real-clock"></time><span id="real-place"></span><span id="real-weather"></span>';
-  document.querySelector('.experience')!.append(widget);
   const section=document.createElement('details');section.className='city-weather';
   section.innerHTML='<summary>Город и погода <span>+</span></summary><form id="city-form"><label for="city-query">Город</label><div class="city-search"><input id="city-query" type="search" placeholder="Название города" minlength="2" maxlength="80" required autocomplete="off"><button>Найти</button></div></form><div id="city-results"></div><p id="weather-state" role="status"></p><a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Данные Open-Meteo ↗</a>';
   document.querySelector('#panel-scene')!.append(section);
+  const reading=document.createElement('div');reading.className='city-reading';reading.innerHTML='<time id="real-clock"></time><span id="real-place"></span><span id="real-weather"></span>';section.querySelector('summary')!.after(reading);
   const el=(id:string)=>document.getElementById(id)!;
   function tick(){
     const now=new Date(), zone=place?.timezone??Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -30,12 +28,11 @@ export function mountWeather(open:()=>void,refreshScreen:()=>void){
     el('real-clock').textContent=clock;el('real-clock').setAttribute('datetime',now.toISOString());
     el('real-place').textContent=place?.name??'Местное время';
     el('real-weather').textContent=place?`${temperature} ${description}`.trim():'Выбрать город';
-    widget.title=place?`${place.name} · ${zone}${updated?' · Данные: '+updated:''}`:'Выбрать город для погоды';
-    const ctx=screen.getContext('2d')!;ctx.imageSmoothingEnabled=false;ctx.fillStyle='#0b202c';ctx.fillRect(0,0,176,100);
+    const ctx=screen.getContext('2d')!;ctx.imageSmoothingEnabled=false;ctx.fillStyle='#0b202c';ctx.fillRect(0,0,screen.width,screen.height);
     ctx.fillStyle='#78b9ba';ctx.font='8px monospace';ctx.fillText('PIXEL WORLD / ONLINE',9,13);
-    ctx.fillStyle='#b4e2da';ctx.font='24px monospace';ctx.fillText(clock,9,44);
+    ctx.fillStyle='#b4e2da';ctx.font='bold 24px monospace';ctx.fillText(clock,9,44);
     ctx.font='10px monospace';ctx.fillText((place?.name??'Местное время').slice(0,23),9,63);
-    ctx.fillStyle='#84b6c1';ctx.fillText((`${temperature} ${description}`.trim()||'Выберите город').slice(0,25),9,82);
+    ctx.fillStyle='#84b6c1';ctx.fillText((`${temperature} ${description}`.trim()||'Выберите город').slice(0,22),9,82);
     refreshScreen();
   }
   async function loadWeather(){
@@ -55,7 +52,6 @@ export function mountWeather(open:()=>void,refreshScreen:()=>void){
     finally{clearTimeout(timer);if(!disposed&&mine===revision)tick();}
   }
   async function select(p:Place){place=p;temperature='';description='Загрузка…';updated='';try{localStorage.setItem(key,JSON.stringify(p));}catch{}el('city-results').replaceChildren();tick();await loadWeather();}
-  widget.onclick=()=>{open();section.open=true;document.querySelector<HTMLInputElement>('#city-query')!.focus();};
   el('city-form').onsubmit=async e=>{
     e.preventDefault();const query=(el('city-query') as HTMLInputElement).value.trim();if(query.length<2)return;
     searchRequest?.abort();const controller=new AbortController();searchRequest=controller;const timer=setTimeout(()=>controller.abort(),10000);

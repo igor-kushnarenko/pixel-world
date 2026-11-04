@@ -80,7 +80,7 @@ let lastAppliedTime = shownTime;
 let lastLightLevel = -1;
 let flight = new PanoramaFlight(settings.city);
 const navigation=mountInterface(svg,open=>menu(open));
-const realWorld=mountWeather(()=>{if(!$('scene-menu').hidden && !$('panel-scene').hidden)return;navigation.open('scene');},()=>{if(engine)engine.setComputerLevel('apartment',roomComputer,true);});
+const realWorld=mountWeather(()=>{if(engine)engine.setComputerLevel('apartment',roomComputer,true);});
 window.addEventListener('pagehide',()=>realWorld.dispose(),{once:true});
 
 function notify(text: string) { $('scene-toast').textContent = text; $('scene-toast').classList.add('show'); clearTimeout(toastTimer); toastTimer = window.setTimeout(() => $('scene-toast').classList.remove('show'), 2300); }

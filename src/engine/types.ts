@@ -46,6 +46,7 @@ export interface RoomLightAssets {
   radioDial: [number, number, number, number]; radioLed: [number, number];
   computerScreen?: TextureSource;
   computerRect?: [number,number,number,number];
+  computerCorners?: [number,number,number,number];
 }
 /** All coordinates are logical pixels from the top-left. Larger depth draws later. */
 export interface ImageLayer {

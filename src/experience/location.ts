@@ -32,7 +32,7 @@ export async function createApartmentLocation(city: CityId, computerScreen?:HTML
       { id: 'apartment', source: room, depth: 100, scope: 'room', receivesLightning: true,
         tint: [0.76, 0.78, 0.84], roomLights: {
           left: `${masks}lit_left.png`, right: `${masks}lit_right.png`, emitters: `${masks}room_emit.png`,
-          radioDial: RADIO_DIAL, radioLed: RADIO_LED, computerScreen,computerRect:[384,644,560,744]
+          radioDial: RADIO_DIAL, radioLed: RADIO_LED, computerScreen,computerRect:[394,640,550,744],computerCorners:[400,548,394,549]
         }
       }
     ]
