@@ -49,9 +49,10 @@ try {
   await page.locator('#atmo-far-hazeDensity').fill('35');await page.locator('#atmo-far-hazeDensity').dispatchEvent('input');
   assert.equal(await page.evaluate(()=>window.atmosphere.getParameters().weather.layers.far.hazeDensity),0.35);
   const life=await page.evaluate(()=>{
-    const e=window.atmosphere;e.setParameters({life:{traffic:1,beacons:true,windowDrops:true},weather:{rain:1}});
+    const e=window.atmosphere;e.setParameters({life:{traffic:1,beacons:false,windowDrops:false},weather:{rain:0}});
     e.seek(0);const first=e.readPixels();e.update(2);const second=e.readPixels();
     const trafficMoves=first.some((v,i)=>v!==second[i]);
+    e.setParameters({life:{windowDrops:true},weather:{rain:1}});
     for(let i=0;i<10;i++)e.update(1);
     const capture=()=>{const c=document.createElement('canvas');c.width=e.width;c.height=e.height;const ctx=c.getContext('2d');ctx.drawImage(e.canvas,0,0);return ctx.getImageData(0,0,c.width,c.height).data;};
     e.setParameters({life:{windowDrops:false}});e.render();const dry=capture();

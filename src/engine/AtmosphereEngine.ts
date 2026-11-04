@@ -9,6 +9,7 @@ import type { AtmosphereParameters, CloudPlane, EngineDiagnostics, EngineOptions
 import { getPreset, paletteAt, parsePreset, resolveParameters, rgb } from './parameters';
 import { frameDeltaSeconds } from './clock';
 import { WindowDrops } from './WindowDrops';
+import { sampleTraffic } from './traffic';
 import { vertex, skyFragment, cloudFragment, imageFragment, roomFragment, lightFragment, fogFragment, layerAtmosphereFragment, rainFragment, trafficFragment, outputFragment } from './shaders';
 
 interface Pass { id: string; mesh: Mesh<PlaneGeometry, ShaderMaterial>; uniforms: Record<string, IUniform>; userVisible: boolean }
@@ -210,7 +211,8 @@ export class AtmosphereEngine {
       this.atmosphereLayers.set(layer.id, pass);
       const image = this.imageLayers.get(layer.id)!;
       const traffic = this.pass(`traffic-${layer.id}`, trafficFragment, layer.depth+(next-layer.depth)*0.25, true, {
-        uTime: { value:0 }, uTraffic: { value:0 }, uTrafficRank: { value:this.trafficLayers.size },
+        uVehicleCount: { value:0 }, uTrafficRank: { value:(scene.layers ?? []).filter(l=>l.scope==='world' && l.depth<layer.depth).length },
+        uVehicles: { value:Array.from({length:24},()=>new Vector4()) }, uVehicleStyles: { value:Array.from({length:24},()=>new Vector4()) },
         uOrigin: image.pass.uniforms.uOrigin, uSize: image.pass.uniforms.uSize, uNative: { value:image.native }
       });
       this.trafficLayers.set(layer.id,traffic);
@@ -351,7 +353,15 @@ export class AtmosphereEngine {
     const fog = this.passes.find(pass => pass.id === 'fog')!;
     for(const pass of this.trafficLayers.values()) {
       pass.mesh.visible=pass.userVisible && p.life.traffic>0;
-      pass.uniforms.uTraffic.value=p.life.traffic;
+      if(pass.mesh.visible){
+        const native=pass.uniforms.uNative.value;
+        const vehicles=sampleTraffic(native.x,native.y,pass.uniforms.uTrafficRank.value,this.time,p.life.traffic,p.seed);
+        pass.uniforms.uVehicleCount.value=vehicles.length;
+        vehicles.forEach((v,i)=>{
+          pass.uniforms.uVehicles.value[i].set(v.x,v.y,v.dx,v.dy);
+          pass.uniforms.uVehicleStyles.value[i].set(v.kind,v.variant,v.tint,0);
+        });
+      }
     }
     const drops=p.life.windowDrops && this.options.scene.windowMask ? this.drops.drops : [];
     this.outputMaterial.uniforms.uDropCount.value=drops.length;

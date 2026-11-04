@@ -201,29 +201,40 @@ void main() {
   gl_FragColor=vec4(vec3(0.5,0.61,0.74)+uFlash*0.3,min(0.5,alpha)*windowAt(vUv));
 }
 `;
-export const trafficFragment = common + stableNoise + /* glsl */`
-uniform float uTime,uTraffic,uTrafficRank;
+export const trafficFragment = common + /* glsl */`
+uniform float uVehicleCount,uTrafficRank;
+uniform vec4 uVehicles[24],uVehicleStyles[24];
 uniform vec2 uOrigin,uSize,uNative;
 void main(){
   vec2 p=floor(gl_FragCoord.xy); p.y=uResolution.y-p.y;
   vec2 local=(p-uOrigin)*uNative/uSize;
   vec3 color=vec3(0.0); float alpha=0.0;
-  for(int route=0;route<2;route++) for(int direction=0;direction<2;direction++) for(int car=0;car<6;car++){
-    float r=float(route),d=float(direction),k=float(car);
-    float seed=cloudHash(ivec2(car+route*31,direction+int(uTrafficRank)*11));
-    if(seed>uTraffic) continue;
-    float signX=d<0.5?1.0:-1.0;
-    float span=uNative.x+40.0;
-    float x=mod(seed*span+uTime*(12.0+uTrafficRank*5.0+seed*9.0)*signX,span)-20.0;
-    float y=uNative.y*(0.3+r*0.18)+d*9.0+sin(x*0.004+seed*6.0)*3.0;
-    vec2 delta=local-floor(vec2(x,y));
-    float size=uTrafficRank<1.5?0.0:3.0;
-    float body=(1.0-step(size+1.0,abs(delta.x)))*(1.0-step(uTrafficRank<1.5?1.0:2.0,abs(delta.y)));
-    vec3 lamp=d<0.5?vec3(0.45,0.85,1.0):vec3(1.0,0.35,0.18);
-    float cabin=uTrafficRank>=1.5?(1.0-step(2.0,abs(delta.x)))*(1.0-step(0.5,abs(delta.y+2.0))):0.0;
-    float head=step(size-0.5,delta.x*signX);
-    color+=body*(uTrafficRank<1.5?lamp*0.7:mix(vec3(0.12,0.26,0.34),lamp,head))+cabin*vec3(0.2,0.5,0.6);
-    alpha=max(alpha,max(body,cabin));
+  for(int i=0;i<24;i++){
+    if(float(i)>=uVehicleCount) break;
+    vec4 v=uVehicles[i],style=uVehicleStyles[i];
+    vec2 delta=local-floor(v.xy);
+    if(abs(delta.x)>16.0 || abs(delta.y)>16.0) continue;
+    vec2 q=floor(vec2(dot(delta,v.zw),dot(delta,vec2(-v.w,v.z)))+0.5);
+    vec3 lamp=v.z>0.0?vec3(0.5,0.85,1.0):vec3(1.0,0.36,0.18);
+    if(uTrafficRank<1.5){
+      float dotPixel=1.0-step(0.75,length(delta));
+      color+=lamp*dotPixel*0.8;alpha=max(alpha,dotPixel);continue;
+    }
+    float kind=style.x,variant=style.y;
+    float halfLength=kind<0.5?3.0+variant:kind<1.5?6.0+variant:8.0+variant;
+    float body=step(abs(q.x),halfLength)*step(abs(q.y),kind<0.5?1.0:2.0);
+    // Three car roofs, three cargo boxes and three bus lengths.
+    float roof=step(abs(q.x+(kind<1.5?1.0:0.0)),kind<0.5?1.0+variant:halfLength-2.0)*step(abs(q.y+2.0),0.0);
+    if(kind>0.5 && kind<1.5) roof*=1.0-step(halfLength-2.0,q.x);
+    float shape=max(body,roof);
+    vec3 paint=mix(vec3(0.15,0.31,0.42),vec3(0.45,0.25,0.16),style.z);
+    if(kind>1.5) paint=mix(vec3(0.2,0.34,0.4),vec3(0.5,0.38,0.16),style.z);
+    float windows=step(1.0,mod(q.x+halfLength,3.0))*step(abs(q.y+1.0),0.0);
+    if(kind>1.5) paint=mix(paint,vec3(0.55,0.72,0.68),windows*0.7);
+    else if(q.x>halfLength-2.0 && q.y<0.0) paint=vec3(0.32,0.65,0.78);
+    if(q.x>halfLength-1.0) paint=lamp;
+    if(q.x<-halfLength+1.0) paint=vec3(0.8,0.12,0.07);
+    color+=paint*shape;alpha=max(alpha,shape);
   }
   gl_FragColor=vec4(color,alpha*windowAt(vUv));
 }
