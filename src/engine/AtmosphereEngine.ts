@@ -10,7 +10,7 @@ import { getPreset, paletteAt, parsePreset, resolveParameters, rgb } from './par
 import { frameDeltaSeconds } from './clock';
 import { WindowDrops } from './WindowDrops';
 import { sampleTraffic, sampleCloseTraffic } from './traffic';
-import { vertex, skyFragment, cloudFragment, imageFragment, roomFragment, lightFragment, fogFragment, layerAtmosphereFragment, rainFragment, trafficFragment, outputFragment } from './shaders';
+import { vertex, skyFragment, cloudFragment, imageFragment, roomFragment, lightFragment, fogFragment, layerAtmosphereFragment, rainFragment, trafficFragment, shutterFragment, outputFragment } from './shaders';
 
 interface Pass { id: string; mesh: Mesh<PlaneGeometry, ShaderMaterial>; uniforms: Record<string, IUniform>; userVisible: boolean }
 interface CloudPass extends Pass { name: 'far' | 'low'; offset: Vector2 }
@@ -56,6 +56,7 @@ export class AtmosphereEngine {
     const { width, height, layers = [], lights = [] } = options.scene;
     if (![width, height].every(n => Number.isInteger(n) && n >= 1 && n <= 4096)) throw new Error('Scene dimensions must be integer logical pixels, 1…4096');
     const ids = ['sky', 'cloud-far', 'cloud-low', 'fog', 'rain', ...layers.map(l => l.id), ...lights.map(l => l.id)];
+    if(options.scene.shutter){const s=options.scene.shutter;ids.push('shutter');if(!options.scene.windowMask||![s.top,s.bottom,s.depth].every(Number.isFinite)||s.top<0||s.bottom>height||s.bottom<=s.top||s.depth<=0||s.depth>=1000)throw new Error('Invalid shutter definition');}
     ids.push(...layers.filter(l => l.scope === 'world').map(l => `atmosphere-${l.id}`));
     ids.push(...layers.filter(l => l.scope === 'world').map(l => `traffic-${l.id}`));
     ids.push(...layers.filter(l => l.scope === 'world' && l.closeTraffic).map(l => `traffic-close-${l.id}`));
@@ -98,7 +99,7 @@ export class AtmosphereEngine {
     this.canvas.style.display = 'block'; this.canvas.style.flexShrink = '0';
     this.windowTexture = this.whiteTexture();
     this.camera.position.z = 1;
-    this.outputMaterial = new ShaderMaterial({ vertexShader: vertex, fragmentShader: outputFragment, uniforms: { uFrame: { value: this.target.texture }, uGlassMask: { value: this.windowTexture }, uGlassResolution: { value: new Vector2(this.width,this.height) }, uDrops: { value: Array.from({length:32},()=>new Vector4()) }, uDropCount: { value: 0 } }, depthTest: false, depthWrite: false });
+    this.outputMaterial = new ShaderMaterial({ vertexShader: vertex, fragmentShader: outputFragment, uniforms: { uFrame: { value: this.target.texture }, uGlassMask: { value: this.windowTexture }, uGlassResolution: { value: new Vector2(this.width,this.height) }, uDrops: { value: Array.from({length:32},()=>new Vector4()) }, uDropCount: { value: 0 },uShutterEdge:{value:-1} }, depthTest: false, depthWrite: false });
     this.output.add(new Mesh(this.geometry, this.outputMaterial));
     options.container.append(this.canvas);
     this.observer = new ResizeObserver(() => this.resize());
@@ -187,7 +188,7 @@ export class AtmosphereEngine {
           uRadioDial: { value: new Vector4(...layer.roomLights.radioDial) }, uRadioLed: { value: new Vector2(...layer.roomLights.radioLed) },
           uComputerScreen:{value:layer.roomLights.computerScreen ? await this.texture(layer.roomLights.computerScreen):this.windowTexture},
           uComputerRect:{value:new Vector4(...(layer.roomLights.computerRect??[0,0,0,0]))},
-          uComputerCorners:{value:new Vector4(...(layer.roomLights.computerCorners??[layer.roomLights.computerRect?.[0]??0,layer.roomLights.computerRect?.[2]??0,layer.roomLights.computerRect?.[0]??0,layer.roomLights.computerRect?.[2]??0]))},uComputerOn:{value:0}
+          uComputerCorners:{value:new Vector4(...(layer.roomLights.computerCorners??[layer.roomLights.computerRect?.[0]??0,layer.roomLights.computerRect?.[2]??0,layer.roomLights.computerRect?.[0]??0,layer.roomLights.computerRect?.[2]??0]))},uComputerOn:{value:0},uExteriorVisibility:{value:1}
         });
       }
       const pass = this.pass(layer.id, layer.roomLights ? roomFragment : imageFragment, layer.depth, layer.scope === 'world', extra);
@@ -230,6 +231,7 @@ export class AtmosphereEngine {
       }
     }
     this.prepareAtmosphere(this.parameters);
+    if(scene.shutter)this.pass('shutter',shutterFragment,scene.shutter.depth,true,{uShutterEdge:{value:-1},uShutterClosed:{value:0},uExteriorAmbient:{value:0},uInterior:{value:new Vector4()}});
   }
 
   private prepareAtmosphere(p: AtmosphereParameters) {
@@ -298,6 +300,15 @@ export class AtmosphereEngine {
     if(!pass?.uniforms.uComputerOn||!Number.isFinite(level)||level<0||level>1)throw new Error('Invalid computer control');
     pass.uniforms.uComputerOn.value=level;
     if(refresh)pass.uniforms.uComputerScreen.value.needsUpdate=true;
+    this.renderAfterEdit();
+  }
+  setWindowShutter(closed:number,interior:[number,number,number,number]=[0,0,0,0]):void{
+    this.assertAlive();const pass=this.passes.find(p=>p.id==='shutter'),s=this.options.scene.shutter;
+    if(!pass||!s||![closed,...interior].every(n=>Number.isFinite(n)&&n>=0&&n<=1))throw new Error('Invalid shutter control');
+    const edge=closed===0?-1:s.top+(s.bottom-s.top)*closed;
+    pass.uniforms.uShutterEdge.value=edge;pass.uniforms.uShutterClosed.value=closed;pass.uniforms.uInterior.value.set(...interior);
+    this.outputMaterial.uniforms.uShutterEdge.value=edge;
+    for(const image of this.imageLayers.values())if(image.pass.uniforms.uExteriorVisibility)image.pass.uniforms.uExteriorVisibility.value=Math.pow(1-closed,1.4);
     this.renderAfterEdit();
   }
   /** For an editor panorama view. Location art and masks themselves stay untouched. */
@@ -370,6 +381,7 @@ export class AtmosphereEngine {
       u.uCloudColor.value = colors.cloud;
     }
     const fog = this.passes.find(pass => pass.id === 'fog')!;
+    const shutter=this.passes.find(pass=>pass.id==='shutter');if(shutter){shutter.mesh.visible=shutter.userVisible&&shutter.uniforms.uShutterClosed.value>0;shutter.uniforms.uExteriorAmbient.value=colors.ambient;}
     for(const pass of this.trafficLayers.values()) {
       pass.mesh.visible=pass.userVisible && p.life.traffic>0;
       if(pass.mesh.visible){

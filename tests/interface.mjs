@@ -52,5 +52,27 @@ try{
   await page.locator('#menu-toggle').click();await page.locator('.city-weather summary').click();await page.locator('#city-query').fill('Токио');await page.locator('#city-form button').click();
   await page.locator('#city-results button').click();await page.waitForFunction(()=>document.querySelector('#real-place').textContent==='Токио');
   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('pixel-world.place.v1')).timezone),'Asia/Tokyo');
+  await page.keyboard.press('Escape');await page.setViewportSize({width:1440,height:1000});
+  await page.locator('#nav-room').click();
+  for(const id of ['lamp-left','lamp-right','computer-toggle'])if(await page.locator('#'+id).getAttribute('aria-pressed')==='true')await page.locator('#'+id).click();
+  await page.locator('#shutter-level').fill('100');await page.locator('#shutter-level').dispatchEvent('input');
+  await page.waitForFunction(()=>{const e=window.atmosphere;const a=e.readPixels();return a[((e.height-1-400)*e.width+900)*4]===0;});
+  const dark=await page.evaluate(()=>{const e=window.atmosphere,a=e.readPixels(),i=((e.height-1-820)*e.width+100)*4;return Array.from(a.slice(i,i+3));});
+  assert.ok(dark.every(v=>v<=1),'Closed shutter removes exterior room illumination');
+  await page.locator('#computer-toggle').click();await page.locator('#lamp-left').click();
+  await page.keyboard.press('Escape');await page.screenshot({path:'artifacts/shutter-closed.png'});
+  await page.locator('#nav-room').click();await page.locator('#shutter-level').fill('0');await page.locator('#shutter-level').dispatchEvent('input');await page.keyboard.press('Escape');
+  const ring=await page.locator('#hit-shutterDown').boundingBox();await page.mouse.move(ring.x+ring.width/2,ring.y+ring.height/2);await page.mouse.down();
+  await page.waitForFunction(()=>Number(document.querySelector('#shutter-level').value)>=6);await page.mouse.up();
+  const stopped=await page.locator('#shutter-level').inputValue();await page.waitForTimeout(400);assert.equal(await page.locator('#shutter-level').inputValue(),stopped);
+  const up=await page.locator('#hit-shutterUp').boundingBox();await page.mouse.move(up.x+up.width/2,up.y+up.height/2);await page.mouse.down();
+  await page.waitForFunction(()=>document.querySelector('#shutter-level').value==='0');await page.mouse.up();
+  const acoustic=await page.evaluate(async()=>{
+    const {CitySound}=await import('/src/experience/citySound.ts');
+    const measure=async(closed,on)=>{const ctx=new OfflineAudioContext(2,96000,48000),city=new CitySound(ctx,ctx.destination);city.set(on,0.65,closed);city.flyby();city.police();const buffer=await ctx.startRendering();let sum=0;const a=buffer.getChannelData(0);for(let i=30000;i<a.length;i++)sum+=a[i]*a[i];city.dispose();return Math.sqrt(sum/(a.length-30000));};
+    return {open:await measure(0,true),closed:await measure(1,true),off:await measure(0,false)};
+  });
+  console.log(JSON.stringify({acoustic}));assert.ok(acoustic.open>0.0001&&acoustic.closed<acoustic.open*0.4&&acoustic.off<0.000001);
+  await page.locator('#nav-audio').click();await page.locator('#city-volume').fill('35');await page.locator('#city-volume').dispatchEvent('input');assert.equal(await page.locator('#city-volume-value').textContent(),'35%');
   assert.deepEqual(errors,[]);console.log('PASS: scene/audio/light/details navigation, controls, Escape focus and mobile/landscape layout; no browser errors');
 }finally{await browser?.close();server.kill();}

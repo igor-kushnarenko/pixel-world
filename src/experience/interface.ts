@@ -29,7 +29,9 @@ export function mountInterface(icon: (name: 'cloud'|'sound'|'lamp'|'menu'|'full'
   panel.after(dock);
   panes.get('scene')!.append(view,moods,weather);
   panes.get('audio')!.append(sound,radio,radioControls);
+  const citySound=document.createElement('div');citySound.className='city-sound-controls';citySound.innerHTML='<button id="city-sound-toggle" class="device" aria-pressed="true">Жизнь большого города</button><p class="panel-intro">Далёкий гул, пролетающие электромобили и редкие сирены.</p><label class="slider-row" for="city-volume"><span>Громкость города</span><input id="city-volume" type="range" min="0" max="100"><output id="city-volume-value">65%</output></label>';panes.get('audio')!.insertBefore(citySound,radio);
   panes.get('room')!.append(room,light);
+  const shutter=document.createElement('label');shutter.className='slider-row';shutter.htmlFor='shutter-level';shutter.innerHTML='<span>Роллет закрыт</span><input id="shutter-level" type="range" min="0" max="100" aria-label="Закрытие роллета"><output id="shutter-level-value">0%</output>';panes.get('room')!.append(shutter);
   panes.get('detail')!.append(clouds,life,atmosphere,footer,hints);
   const intro=document.createElement('p');intro.className='panel-intro';intro.textContent='Тонкая настройка движения и атмосферы. Всё сохраняется автоматически.';panes.get('detail')!.prepend(intro);
   const lightIntro=document.createElement('p');lightIntro.className='panel-intro';lightIntro.textContent='Добавьте тепла. Светильники можно включать и прямо в комнате.';panes.get('room')!.prepend(lightIntro);

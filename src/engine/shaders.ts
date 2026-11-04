@@ -123,7 +123,7 @@ uniform vec4 uRadioDial;
 uniform vec3 uTint, uRoomControls;
 uniform sampler2D uComputerScreen;
 uniform vec4 uComputerRect,uComputerCorners;
-uniform float uComputerOn;
+uniform float uComputerOn,uExteriorVisibility;
 uniform float uOpacity, uReceivesFlash;
 void main(){
   vec2 p=vec2(vUv.x,1.0-vUv.y)*uResolution-uOrigin;
@@ -141,7 +141,7 @@ void main(){
   col+=dial*vec3(1.0,0.62,0.25)*(0.1+lum*1.6)*controls.z;
   float led=1.0-step(2.1,length(pixel-uRadioLed));
   col+=vec3(0.25,1.0,0.35)*led*controls.z*0.8;
-  col+=c.rgb*uFlash*uReceivesFlash*0.6;
+  col+=c.rgb*uFlash*uReceivesFlash*0.6*uExteriorVisibility;
   float sy=(p.y-uComputerRect.y)/max(1.0,uComputerRect.w-uComputerRect.y);
   float left=mix(uComputerCorners.x,uComputerCorners.z,sy),right=mix(uComputerCorners.y,uComputerCorners.w,sy);
   vec2 glassSize=vec2(max(1.0,right-left),max(1.0,uComputerRect.w-uComputerRect.y));
@@ -156,7 +156,7 @@ void main(){
   float strip=pow(max(0.0,1.0-abs(q.y+q.x*0.45+0.65)/0.33),2.0);
   float frame=step(0.92,abs(q.x))*0.035+step(0.94,abs(q.y))*0.025;
   float warm=pow(max(0.0,1.0-length((q-vec2(-0.65,-0.25))*vec2(2.0,3.0))),3.0)*controls.x;
-  vec3 reflection=vec3(0.09,0.14,0.18)*strip+vec3(0.4,0.29,0.14)*warm*0.17+vec3(0.12,0.2,0.24)*frame;
+  vec3 reflection=(vec3(0.09,0.14,0.18)*strip+vec3(0.12,0.2,0.24)*frame)*uExteriorVisibility+vec3(0.4,0.29,0.14)*warm*0.17;
   col=mix(col,display,uComputerOn*screen);
   col+=reflection*screen*(0.35+0.65*uComputerOn);
   float spill=quant(max(0.0,1.0-length((p-vec2(uComputerRect.x+80.0,uComputerRect.w))/vec2(155.0,75.0))),16.0);
@@ -265,6 +265,23 @@ void main(){
   gl_FragColor=vec4(color,alpha*windowAt(vUv));
 }
 `;
+export const shutterFragment = common + /* glsl */`
+uniform float uShutterEdge,uShutterClosed,uExteriorAmbient;
+uniform vec4 uInterior;
+void main(){
+  vec2 p=floor(gl_FragCoord.xy);p.y=uResolution.y-p.y;
+  if(p.y>uShutterEdge)discard;
+  float slat=mod(p.y,9.0);
+  float rib=slat<1.0?0.35:slat<3.0?1.15:0.78;
+  float outside=pow(1.0-uShutterClosed,1.4)*(0.1+uExteriorAmbient*0.18);
+  vec3 light=vec3(0.14,0.19,0.23)*outside;
+  light+=vec3(0.18,0.11,0.05)*uInterior.x*max(0.0,1.0-length((p-vec2(244.0,576.0))/vec2(550.0,350.0)));
+  light+=vec3(0.16,0.09,0.04)*uInterior.y*max(0.0,1.0-length((p-vec2(1575.0,350.0))/vec2(500.0,350.0)));
+  light+=vec3(0.015,0.04,0.05)*uInterior.w*max(0.0,1.0-length((p-vec2(470.0,740.0))/vec2(350.0,250.0)));
+  light+=vec3(0.025,0.018,0.008)*uInterior.z*max(0.0,1.0-length((p-vec2(1340.0,740.0))/vec2(300.0,200.0)));
+  gl_FragColor=vec4(light*rib,windowAt(vUv));
+}
+`;
 export const outputFragment = /* glsl */`
 precision highp float;
 varying vec2 vUv;
@@ -272,9 +289,10 @@ uniform sampler2D uFrame,uGlassMask;
 uniform vec2 uGlassResolution;
 uniform vec4 uDrops[32];
 uniform float uDropCount;
+uniform float uShutterEdge;
 void main(){
   vec4 base=texture2D(uFrame,vUv);
-  if(texture2D(uGlassMask,vUv).r<0.5){gl_FragColor=base;return;}
+  if(texture2D(uGlassMask,vUv).r<0.5 || (1.0-vUv.y)*uGlassResolution.y<=uShutterEdge){gl_FragColor=base;return;}
   vec2 pixel=floor(vUv*uGlassResolution)+0.5;
   vec2 shift=vec2(0.0);float rim=0.0;
   for(int i=0;i<32;i++){
@@ -288,7 +306,7 @@ void main(){
     if(abs(delta.x)<0.65 && delta.y>0.0 && delta.y<drop.w*0.25) shift=vec2(1.0,0.0);
   }
   vec2 uv=(floor(pixel+shift)+0.5)/uGlassResolution;
-  if(texture2D(uGlassMask,uv).r>0.5) base=texture2D(uFrame,uv);
+  if(texture2D(uGlassMask,uv).r>0.5 && (1.0-uv.y)*uGlassResolution.y>uShutterEdge) base=texture2D(uFrame,uv);
   gl_FragColor=vec4(base.rgb+rim,1.0);
 }
 `;

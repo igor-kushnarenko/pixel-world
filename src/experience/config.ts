@@ -24,7 +24,8 @@ export const HOTSPOTS = {
   left: { label: 'Включить лампу', key: 'L', rect: [174, 546, 216, 602] },
   right: { label: 'Включить настенную панель', key: 'K', rect: [1612, 240, 1662, 462] },
   radio: { label: 'Включить радио', key: 'R', rect: [1218, 676, 1470, 800] },
-  computer:{label:'Включить компьютер',key:'C',rect:[360,620,595,817]}
+  computer:{label:'Включить компьютер',key:'C',rect:[360,620,595,817]},
+  shutterUp:{label:'Поднимать роллет: удерживайте',key:'Удерживать',rect:[194,40,242,110]},shutterDown:{label:'Опускать роллет: удерживайте',key:'Удерживать',rect:[1575,40,1625,110]}
 } as const;
 export const RADIO_DIAL: [number, number, number, number] = [1325, 714, 1451, 745];
 export const RADIO_LED: [number, number] = [1418, 752];

@@ -7,16 +7,18 @@ export class Ambience {
     const ctx = (this.ctx = new (window.AudioContext || window.webkitAudioContext)());
     this.master = ctx.createGain(); this.master.gain.value=0; const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -12; lim.ratio.value = 8;
     this.master.connect(lim).connect(ctx.destination);
+    this.exterior=ctx.createBiquadFilter();this.exterior.type='lowpass';this.exterior.frequency.value=12000;
+    this.exteriorGain=ctx.createGain();this.exterior.connect(this.exteriorGain).connect(this.master);
     const noise = (this.noise = this.buf((d) => { for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }));
     const brown = this.buf((d) => { let l = 0; for (let i = 0; i < d.length; i++) { l = (l + 0.02 * (Math.random() * 2 - 1)) / 1.02; d[i] = l * 3.5; } });
     const src = (b) => { const s = ctx.createBufferSource(); s.buffer = b; s.loop = true; s.start(); this.sources.push(s); return s; };
     const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 900;
     this.lp = ctx.createBiquadFilter(); this.lp.type = 'lowpass'; this.lp.frequency.value = 5000;
-    this.hi = ctx.createGain(); this.hi.gain.value = 0; src(noise).connect(hp).connect(this.lp).connect(this.hi).connect(this.master);
+    this.hi = ctx.createGain(); this.hi.gain.value = 0; src(noise).connect(hp).connect(this.lp).connect(this.hi).connect(this.exterior);
     const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 420; bp.Q.value = 0.6;
-    this.lo = ctx.createGain(); this.lo.gain.value = 0; src(brown).connect(bp).connect(this.lo).connect(this.master);
+    this.lo = ctx.createGain(); this.lo.gain.value = 0; src(brown).connect(bp).connect(this.lo).connect(this.exterior);
     const hlp = ctx.createBiquadFilter(); hlp.type = 'lowpass'; hlp.frequency.value = 140;
-    this.hum = ctx.createGain(); this.hum.gain.value = 0.012; src(brown).connect(hlp).connect(this.hum).connect(this.master);
+    this.hum = ctx.createGain(); this.hum.gain.value = 0.012; src(brown).connect(hlp).connect(this.hum).connect(this.exterior);
     // радио-помехи (как в rainroom/campfire)
     this.radioOut = ctx.createGain(); this.radioOut.gain.value = 0; this.radioOut.connect(this.master);
     const st = src(noise); const shp = ctx.createBiquadFilter(); shp.type = 'highpass'; shp.frequency.value = 300;
@@ -30,13 +32,14 @@ export class Ambience {
     g.gain.setValueAtTime(0.08, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.025); s.connect(f).connect(g).connect(this.master); s.start(t, Math.random() * 3, 0.03); }
   buf(fill) { const b = this.ctx.createBuffer(1, this.ctx.sampleRate * 4, this.ctx.sampleRate); fill(b.getChannelData(0)); return b; }
   set(vol, rain) { if(this.vol === vol && this.rain === rain) return; this.vol = vol; this.rain = rain; this.apply(); }
+  setOcclusion(closed,cityOn=true){if(!this.ctx)return;const t=this.ctx.currentTime;this.exterior.frequency.setTargetAtTime(450+Math.pow(1-closed,2)*11550,t,0.2);this.exteriorGain.gain.setTargetAtTime(1-closed*0.85,t,0.2);this.hum.gain.setTargetAtTime(cityOn?0.012:0,t,0.2);}
   async dispose() { clearInterval(this.timer); for(const s of this.sources) { try { s.stop(); } catch {} } this.sources=[]; if(this.ctx && this.ctx.state !== 'closed') await this.ctx.close(); }
   thunder() {
     if(!this.ctx || this.ctx.state!=='running') return;
     const c=this.ctx, t=c.currentTime+0.4, s=c.createBufferSource(); s.buffer=this.noise;
     const low=c.createBiquadFilter(); low.type='lowpass'; low.frequency.value=145;
     const gain=c.createGain(); gain.gain.setValueAtTime(0.0001,t); gain.gain.exponentialRampToValueAtTime(0.19,t+0.18); gain.gain.exponentialRampToValueAtTime(0.0001,t+2.6);
-    s.connect(low).connect(gain).connect(this.master); s.start(t,0,2.8);
+    s.connect(low).connect(gain).connect(this.exterior); s.start(t,0,2.8);
   }
   apply() {
     if (!this.ctx) return; const t = this.ctx.currentTime, R = rainParams(this.rain);
@@ -69,7 +72,7 @@ export class Ambience {
     while (this.next < t + 0.2) {
       const s = ctx.createBufferSource(); s.buffer = this.noise; const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1800 + Math.random() * 3000; f.Q.value = 5;
       const g = ctx.createGain(); g.gain.setValueAtTime(0.015 + Math.random() * 0.03, this.next); g.gain.exponentialRampToValueAtTime(0.0001, this.next + 0.025);
-      s.connect(f).connect(g).connect(this.master); s.start(Math.max(this.next, t), Math.random() * 3, 0.03);
+      s.connect(f).connect(g).connect(this.exterior); s.start(Math.max(this.next, t), Math.random() * 3, 0.03);
       this.next += -Math.log(1 - Math.random()) * (0.4 - 0.34 * this.rain);
     }
   }

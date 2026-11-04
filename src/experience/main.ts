@@ -2,6 +2,8 @@ import './style.css';
 import './interface.css';
 import { mountInterface } from './interface';
 import { mountWeather } from './weather';
+import { CitySound } from './citySound';
+import { exteriorVisibility,shutterStep } from './shutter';
 import { AtmosphereEngine } from '../engine';
 import { ambientLighting } from './lighting';
 import { PanoramaFlight } from './flight';
@@ -67,6 +69,7 @@ if (query.has('fresh')) settings = structuredClone(DEFAULT_SETTINGS);
 let engine: AtmosphereEngine;
 let entered = false, soundEnabled = false, radioOn = false, disposed = false;
 let roomLeft = 0, roomRight = 0, roomRadio = 0,roomComputer=0;
+let shutter=settings.shutter,shutterDirection=0,citySound:CitySound|undefined;
 let toastTimer = 0, idleTimer = 0, closeTimer = 0, frameId = 0;
 const audio = new Ambience();
 const tuner = new Tuner({ audio, onName: (name: string | null) => {
@@ -82,10 +85,13 @@ let flight = new PanoramaFlight(settings.city);
 const navigation=mountInterface(svg,open=>menu(open));
 const realWorld=mountWeather(()=>{if(engine)engine.setComputerLevel('apartment',roomComputer,true);});
 window.addEventListener('pagehide',()=>realWorld.dispose(),{once:true});
+window.addEventListener('pagehide',()=>citySound?.dispose(),{once:true});
 
 function notify(text: string) { $('scene-toast').textContent = text; $('scene-toast').classList.add('show'); clearTimeout(toastTimer); toastTimer = window.setTimeout(() => $('scene-toast').classList.remove('show'), 2300); }
 function active(id: string, value: boolean) { $(id).setAttribute('aria-pressed', String(value)); }
 function syncUI() {
+  active('city-sound-toggle',settings.citySound);$<HTMLInputElement>('city-volume').value=String(Math.round(settings.cityVolume*100));$('city-volume-value').textContent=`${Math.round(settings.cityVolume*100)}%`;
+  $<HTMLInputElement>('shutter-level').value=String(Math.round(shutter*100));$('shutter-level-value').textContent=`${Math.round(shutter*100)}%`;
   active('computer-toggle',settings.computer);$('hit-computer').setAttribute('aria-label',`${settings.computer?'Выключить':'Включить'} компьютер`);
   active('beacon-toggle',settings.beacons);active('drops-toggle',settings.windowDrops);
   $<HTMLInputElement>('traffic-level').value=String(Math.round(settings.traffic*100));$('traffic-level-value').textContent=`${Math.round(settings.traffic*100)}%`;
@@ -119,6 +125,7 @@ function updateRadioUI() {
   if (tuner.cur()) $<HTMLSelectElement>('station-select').value = tuner.cur().id;
 }
 function syncAudio() {
+  audio.setOcclusion(shutter,settings.citySound);citySound?.set(settings.citySound,settings.cityVolume,shutter);
   audio.set(soundEnabled ? settings.volume : 0, settings.rain);
   audio.setRadio(radioOn, settings.radioVolume);
   tuner.setVolume(settings.radioVolume); tuner.setMasterVolume(soundEnabled ? settings.volume : 0);
@@ -126,7 +133,7 @@ function syncAudio() {
   $('audio-status').textContent = soundEnabled ? 'Городской гул, капли и живой эфир' : 'Сейчас тихо';
 }
 async function enableSound() {
-  try { audio.start(); await audio.ctx?.resume(); soundEnabled = true; syncUI(); }
+  try { audio.start();if(!audio.ctx||!audio.master)throw new Error('Audio unavailable'); await audio.ctx.resume();if(!citySound)citySound=new CitySound(audio.ctx,audio.master); soundEnabled = true; syncUI(); }
   catch { soundEnabled = false; syncUI(); notify('Звук недоступен. Панорама продолжает работать в тишине.'); }
 }
 function applyEnvironment() {
@@ -224,6 +231,18 @@ async function main() {
   $('radio-toggle').onclick = () => { void toggleRadio(); }; $('hit-radio').onclick = () => { void toggleRadio(); };
   const toggleComputer=()=>{settings.computer=!settings.computer;applyEnvironment();audio.click();notify(settings.computer?'Компьютер включён':'Компьютер выключен');};
   $('computer-toggle').onclick=toggleComputer;$('hit-computer').onclick=toggleComputer;
+  $('city-sound-toggle').onclick=async()=>{if(!settings.citySound&&!soundEnabled)await enableSound();settings.citySound=!settings.citySound;syncUI();saveSettings(settings);};
+  $<HTMLInputElement>('city-volume').oninput=e=>{settings.cityVolume=Number((e.target as HTMLInputElement).value)/100;syncUI();saveSettings(settings);};
+  const stopShutter=()=>{shutterDirection=0;settings.shutter=shutter;saveSettings(settings);};
+  for(const [id,direction]of [['hit-shutterUp',-1],['hit-shutterDown',1]]as const){
+    const button=$(id);button.style.touchAction='none';
+    button.onpointerdown=e=>{if(e.button!==0)return;e.preventDefault();button.setPointerCapture(e.pointerId);shutterDirection=direction;};
+    button.onpointerup=stopShutter;button.onpointercancel=stopShutter;button.onlostpointercapture=stopShutter;
+    button.onkeydown=e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();shutterDirection=direction;}};
+    button.onkeyup=stopShutter;button.onblur=stopShutter;
+  }
+  window.addEventListener('blur',stopShutter);document.addEventListener('visibilitychange',()=>{if(document.hidden)stopShutter();});
+  $<HTMLInputElement>('shutter-level').oninput=e=>{stopShutter();shutter=settings.shutter=Number((e.target as HTMLInputElement).value)/100;syncUI();saveSettings(settings);};
   $('cloud-toggle').onclick = () => { settings.clouds = !settings.clouds; if (settings.clouds && settings.coverage === 0) settings.coverage = 0.7; applyEnvironment(); };
   $('beacon-toggle').onclick=()=>{settings.beacons=!settings.beacons;applyEnvironment();};
   $('drops-toggle').onclick=()=>{settings.windowDrops=!settings.windowDrops;applyEnvironment();};
@@ -243,6 +262,7 @@ async function main() {
     engine.seek(0);
     radioOn = false; tuner.setOn(false); roomLeft = roomRight = roomRadio = 0;
     roomComputer=0;
+    shutter=0;shutterDirection=0;
     flight.target(settings.city);
     applyEnvironment(); notify('Снова тихая ночь');
   };
@@ -267,6 +287,10 @@ async function main() {
   function frame(now: number) {
     if (disposed) return;
     const dt = frameDeltaSeconds(now, previous); previous = now;
+    if(!document.hidden){
+      if(shutterDirection){shutter=shutterStep(shutter,shutterDirection,dt);settings.shutter=shutter;audio.setOcclusion(shutter,settings.citySound);citySound?.set(settings.citySound,settings.cityVolume,shutter);$<HTMLInputElement>('shutter-level').value=String(Math.round(shutter*100));$('shutter-level-value').textContent=`${Math.round(shutter*100)}%`;if(shutter===0||shutter===1)stopShutter();}
+      engine.setWindowShutter(shutter,[roomLeft,roomRight,roomRadio,roomComputer]);
+    }
     if (!document.hidden && !query.has('paused')) {
       if (flight.moving) {
         flight.update(dt);
@@ -282,12 +306,12 @@ async function main() {
       engine.setRoomLightLevels('apartment', roomLeft, roomRight, roomRadio);
       const lighting = ambientLighting(shownTime, settings.sky, settings.city, flight.roomAmbient);
       const daylight = lighting.daylight;
-      engine.setLayerTint('apartment', lighting.room);
+      engine.setLayerTint('apartment', lighting.room.map(c=>c*exteriorVisibility(shutter))as[number,number,number]);
       for (const id of ['far', 'midfar', 'midnear', 'near']) engine.setLayerTint(id, lighting.city);
       const lights = settings.lights * (1 - daylight * 0.65);
       if (Math.abs(lights - lastLightLevel) > 0.002) { lastLightLevel = lights; engine.setParameters({ lighting: { cityLightsIntensity: lights } }); }
       engine.update(dt);
-    } else if (query.has('paused')) {roomComputer=settings.computer?1:0;engine.setComputerLevel('apartment',roomComputer); engine.setRoomLightLevels('apartment', settings.left ? 1 : 0, settings.right ? 1 : 0, radioOn ? 1 : 0); engine.render(); }
+    } else if (query.has('paused')) {roomComputer=settings.computer?1:0;roomLeft=settings.left?1:0;roomRight=settings.right?1:0;roomRadio=radioOn?1:0;engine.setComputerLevel('apartment',roomComputer); engine.setRoomLightLevels('apartment',roomLeft,roomRight,roomRadio);engine.setWindowShutter(shutter,[roomLeft,roomRight,roomRadio,roomComputer]);const lighting=ambientLighting(shownTime,settings.sky,settings.city,flight.roomAmbient);engine.setLayerTint('apartment',lighting.room.map(c=>c*exteriorVisibility(shutter))as[number,number,number]); engine.render(); }
     frameId = requestAnimationFrame(frame);
   }
   frameId = requestAnimationFrame(frame);
