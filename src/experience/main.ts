@@ -1,6 +1,7 @@
 import './style.css';
 import { AtmosphereEngine } from '../engine';
 import { ambientLighting } from './lighting';
+import { PanoramaFlight } from './flight';
 import { frameDeltaSeconds } from '../engine/clock';
 import { createApartmentLocation } from './location';
 import { CITY_IDS, CITY_LAYOUTS, HEIGHT, HOTSPOTS, WIDTH, nextCity } from './config';
@@ -70,6 +71,7 @@ const timeFor: Record<SkyMood, number> = { night: 22, dusk: 18.4, day: 12, storm
 let shownTime = timeFor[settings.sky], targetTime = shownTime;
 let lastAppliedTime = shownTime;
 let lastLightLevel = -1;
+let flight = new PanoramaFlight(settings.city);
 
 function notify(text: string) { $('scene-toast').textContent = text; $('scene-toast').classList.add('show'); clearTimeout(toastTimer); toastTimer = window.setTimeout(() => $('scene-toast').classList.remove('show'), 2300); }
 function active(id: string, value: boolean) { $(id).setAttribute('aria-pressed', String(value)); }
@@ -133,7 +135,7 @@ async function toggleRadio() {
 }
 function changeView(direction: number) {
   settings.city = nextCity(settings.city, direction);
-  for (const [id, placement] of Object.entries(CITY_LAYOUTS[settings.city].layers)) engine.setLayerPlacement(id, placement);
+  flight.target(settings.city);
   saveSettings(settings); syncUI(); audio.click(); notify(CITY_LAYOUTS[settings.city].name);
 }
 function menu(open: boolean, focus = false) {
@@ -206,7 +208,7 @@ async function main() {
   $('reset-scene').onclick = () => {
     settings = structuredClone(DEFAULT_SETTINGS); targetTime = shownTime = 22; lastAppliedTime = -1;
     radioOn = false; tuner.setOn(false); roomLeft = roomRight = roomRadio = 0;
-    for (const [id, placement] of Object.entries(CITY_LAYOUTS[settings.city].layers)) engine.setLayerPlacement(id, placement);
+    flight.target(settings.city);
     applyEnvironment(); notify('Снова тихая ночь');
   };
   window.addEventListener('pointermove', wake, { passive: true }); window.addEventListener('pointerdown', wake, { passive: true });
@@ -225,6 +227,10 @@ async function main() {
     if (disposed) return;
     const dt = frameDeltaSeconds(now, previous); previous = now;
     if (!document.hidden && !query.has('paused')) {
+      if (flight.moving) {
+        flight.update(dt);
+        for (const [id, placement] of Object.entries(flight.placements)) engine.setLayerPlacement(id, placement);
+      }
       shownTime += (targetTime - shownTime) * (1 - Math.exp(-dt / 1.8));
       if (Math.abs(shownTime - lastAppliedTime) > 0.005) { lastAppliedTime = shownTime; engine.setParameters({ timeOfDay: shownTime }); }
       const a = 1 - Math.exp(-dt / 0.18);
@@ -232,7 +238,7 @@ async function main() {
       roomRight += ((settings.right ? 1 : 0) - roomRight) * a;
       roomRadio += ((radioOn ? 1 : 0) - roomRadio) * a;
       engine.setRoomLightLevels('apartment', roomLeft, roomRight, roomRadio);
-      const lighting = ambientLighting(shownTime, settings.sky, settings.city);
+      const lighting = ambientLighting(shownTime, settings.sky, settings.city, flight.roomAmbient);
       const daylight = lighting.daylight;
       engine.setLayerTint('apartment', lighting.room);
       for (const id of ['far', 'midfar', 'midnear', 'near']) engine.setLayerTint(id, lighting.city);
